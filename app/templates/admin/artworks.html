@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Gestion des œuvres</h1>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Numéro</th>
+                    <th>Artiste</th>
+                    <th>Nom</th>
+                    <th>Technique</th>
+                    <th>Dimensions</th>
+                    <th>Prix</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for artwork in artworks %}
+                <tr>
+                    <td>{{ artwork.numero }}</td>
+                    <td>{{ artwork.artist.nom_artiste }}</td>
+                    <td>{{ artwork.nom }}</td>
+                    <td>{{ artwork.technique }}</td>
+                    <td>{{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm</td>
+                    <td>{{ artwork.prix }}€</td>
+                    <td>
+                        <span class="badge {% if artwork.status == 'selected' %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ artwork.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin.update_artwork_selection', artwork_id=artwork.id) }}" class="d-inline">
+                            <input type="hidden" name="selected" value="{{ 'false' if artwork.status == 'selected' else 'true' }}">
+                            <button type="submit" class="btn btn-sm {% if artwork.status == 'selected' %}btn-danger{% else %}btn-success{% endif %}">
+                                {{ 'Désélectionner' if artwork.status == 'selected' else 'Sélectionner' }}
+                            </button>
+                        </form>
+                        <a href="#" class="btn btn-sm btn-primary">Voir détails</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+            Retour au tableau de bord
+        </a>
+    </div>
+</div>
+{% endblock %}

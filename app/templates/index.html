@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero-section text-center">
+    <div class="container">
+        <h1 class="display-4 mb-4">Bienvenue dans notre Galerie d'Art</h1>
+        <p class="lead mb-5">Plateforme de soumission et sélection d'œuvres d'art</p>
+        <div class="d-flex justify-content-center gap-4">
+            <a href="{{ url_for('artists.submit_artwork') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-palette me-2"></i>
+                Soumettre une Œuvre
+            </a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-secondary btn-lg">
+                <i class="fas fa-sign-in-alt me-2"></i>
+                Connexion Membres
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <h2 class="text-center mb-5">Comment ça marche ?</h2>
+        <div class="row justify-content-center">
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <h3 class="h4 mb-3">Soumission d'Œuvres</h3>
+                <p class="text-muted">Soumettez vos œuvres pour l'exposition en remplissant un simple formulaire</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="fas fa-vote-yea"></i>
+                </div>
+                <h3 class="h4 mb-3">Sélection des Œuvres</h3>
+                <p class="text-muted">Les membres votent pour sélectionner les œuvres qui seront exposées</p>
+            </div>
+            <div class="col-md-4 text-center mb-4">
+                <div class="feature-icon">
+                    <i class="fas fa-cube"></i>
+                </div>
+                <h3 class="h4 mb-3">Visualisation 3D</h3>
+                <p class="text-muted">Les œuvres sélectionnées seront présentées en 3D</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

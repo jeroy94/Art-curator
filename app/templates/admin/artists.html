@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Gestion des artistes</h1>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Numéro dossier</th>
+                    <th>Nom</th>
+                    <th>Prénom</th>
+                    <th>Nom d'artiste</th>
+                    <th>Email</th>
+                    <th>Catégorie</th>
+                    <th>Œuvres</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for artist in artists %}
+                <tr>
+                    <td>{{ artist.numero_dossier }}</td>
+                    <td>{{ artist.nom }}</td>
+                    <td>{{ artist.prenom }}</td>
+                    <td>{{ artist.nom_artiste }}</td>
+                    <td>{{ artist.email }}</td>
+                    <td>{{ artist.categorie }}</td>
+                    <td>{{ artist.oeuvres|length }}</td>
+                    <td>
+                        <a href="#" class="btn btn-sm btn-primary">Voir détails</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+            Retour au tableau de bord
+        </a>
+    </div>
+</div>
+{% endblock %}

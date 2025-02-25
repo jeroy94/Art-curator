@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Tableau de bord administrateur</h1>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Artistes</h5>
+                    <p class="card-text">{{ artists|length }} artistes inscrits</p>
+                    <a href="{{ url_for('admin.list_artists') }}" class="btn btn-primary">Gérer les artistes</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Œuvres</h5>
+                    <p class="card-text">{{ artworks|length }} œuvres soumises</p>
+                    <a href="{{ url_for('admin.list_artworks') }}" class="btn btn-primary">Gérer les œuvres</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Utilisateurs</h5>
+                    <p class="card-text">{{ users|length }} utilisateurs enregistrés</p>
+                    <a href="{{ url_for('admin.get_statistics') }}" class="btn btn-primary">Voir les statistiques</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('admin.generate_pdfs') }}" class="btn btn-success">
+            Générer les PDF des artistes sélectionnés
+        </a>
+    </div>
+</div>
+{% endblock %}

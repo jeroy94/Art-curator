@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Liste des œuvres par artiste</h1>
+
+    {% for artist in artists %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">{{ artist.nom }} {{ artist.prenom }}</h2>
+            {% if artist.nom_artiste %}
+            <small class="text-muted">Nom d'artiste : {{ artist.nom_artiste }}</small>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if artist.artworks %}
+            <div class="row">
+                {% for artwork in artist.artworks %}
+                <div class="col-md-4 mb-3">
+                    <div class="card" style="width: 350px;">
+                        {% if artwork.photo_path %}
+                        <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal{{ artwork.id }}">
+                                <img src="{{ url_for('artworks.uploaded_file', filename=artwork.photo_path) }}" 
+                                     style="max-width: 300px; max-height: 200px; width: auto; height: auto;"
+                                     alt="{{ artwork.titre }}">
+                            </a>
+                        </div>
+
+                        <!-- Modal pour l'image -->
+                        <div class="modal fade" id="imageModal{{ artwork.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ artwork.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="imageModalLabel{{ artwork.id }}">{{ artwork.titre }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                                    </div>
+                                    <div class="modal-body text-center">
+                                        <img src="{{ url_for('artworks.uploaded_file', filename=artwork.photo_path) }}" 
+                                             style="max-width: 100%; height: auto;"
+                                             alt="{{ artwork.titre }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="bg-light text-center py-5">
+                            <i class="fas fa-image fa-3x text-muted"></i>
+                            <p class="text-muted mt-2">Pas de photo</p>
+                        </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ artwork.titre }}</h5>
+                            <p class="card-text">
+                                <small>N° : {{ artwork.numero }}</small><br>
+                                <small>Technique : {{ artwork.technique }}</small><br>
+                                <small>Dimensions : {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}
+                                    {% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm
+                                </small><br>
+                                <small>Prix : {{ artwork.prix }}€</small>
+                            </p>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="btn-group">
+                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id, vote_type='up') }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm {% if user_votes.get(artwork.id) == 'up' %}btn-success{% else %}btn-outline-success{% endif %}">
+                                            <i class="fas fa-thumbs-up"></i> <span>{{ up_votes.get(artwork.id, 0) }}</span>
+                                        </button>
+                                    </form>
+                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id, vote_type='down') }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm {% if user_votes.get(artwork.id) == 'down' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                                            <i class="fas fa-thumbs-down"></i> <span>{{ down_votes.get(artwork.id, 0) }}</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            {% if current_user.is_admin %}
+                            <div class="btn-group w-100">
+                                {% if artwork.statut == 'en_attente' %}
+                                <form action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='selectionne') }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        <i class="fas fa-check"></i> Sélectionner
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='refuse') }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-times"></i> Refuser
+                                    </button>
+                                </form>
+                                {% elif artwork.statut == 'selectionne' %}
+                                <form action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='en_attente') }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-undo"></i> Annuler la sélection
+                                    </button>
+                                </form>
+                                {% else %}
+                                <form action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='en_attente') }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-undo"></i> Annuler le refus
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">Aucune œuvre pour cet artiste.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateVoteCounts() {
+    // Pour chaque œuvre, récupérer le nombre de votes
+    document.querySelectorAll('[data-artwork-id]').forEach(function(element) {
+        const artworkId = element.dataset.artworkId;
+        fetch(`/artworks/get_votes/${artworkId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Votes reçus:', data);
+                // Mettre à jour les compteurs
+                document.querySelector(`.vote-count-up-${artworkId}`).textContent = data.up_votes;
+                document.querySelector(`.vote-count-down-${artworkId}`).textContent = data.down_votes;
+                
+                // Mettre en évidence le vote de l'utilisateur
+                const upBtn = document.querySelector(`[data-artwork-id="${artworkId}"][data-vote-type="up"]`);
+                const downBtn = document.querySelector(`[data-artwork-id="${artworkId}"][data-vote-type="down"]`);
+                
+                if (data.user_vote === 'up') {
+                    upBtn.classList.remove('btn-outline-success');
+                    upBtn.classList.add('btn-success');
+                    downBtn.classList.remove('btn-danger');
+                    downBtn.classList.add('btn-outline-danger');
+                } else if (data.user_vote === 'down') {
+                    downBtn.classList.remove('btn-outline-danger');
+                    downBtn.classList.add('btn-danger');
+                    upBtn.classList.remove('btn-success');
+                    upBtn.classList.add('btn-outline-success');
+                } else {
+                    upBtn.classList.remove('btn-success');
+                    upBtn.classList.add('btn-outline-success');
+                    downBtn.classList.remove('btn-danger');
+                    downBtn.classList.add('btn-outline-danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la récupération des votes:', error);
+            });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Mettre à jour les votes au chargement de la page
+    updateVoteCounts();
+});
+</script>
+{% endblock %}

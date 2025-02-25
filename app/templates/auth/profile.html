@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title mb-4">Mon Profil</h3>
+                    
+                    <form method="POST" action="{{ url_for('auth.update_profile') }}">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" value="{{ current_user.email }}" readonly>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Nom d'utilisateur</label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Mot de passe actuel</label>
+                            <input type="password" class="form-control" id="current_password" name="current_password">
+                            <small class="text-muted">Requis uniquement pour changer le mot de passe</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">Nouveau mot de passe</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirmer le nouveau mot de passe</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_artist" name="is_artist" {% if current_user.is_artist %}checked{% endif %}>
+                                <label class="form-check-label" for="is_artist">
+                                    Je suis un artiste
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Mettre à jour</button>
+                    </form>
+
+                    {% if current_user.is_artist %}
+                    <div class="mt-4">
+                        <a href="{{ url_for('artists.profile') }}" class="btn btn-outline-primary">
+                            Accéder à mon profil artiste
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

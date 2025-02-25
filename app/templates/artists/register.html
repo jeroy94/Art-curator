@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Inscription Artiste{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4">Inscription Artiste</h2>
+                    
+                    <form method="POST" action="{{ url_for('artists.register') }}" enctype="multipart/form-data" id="artistForm">
+                        <!-- Informations personnelles -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Informations personnelles</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label">Civilité</label>
+                                        <select name="civilite" class="form-select" required>
+                                            <option value="M">M.</option>
+                                            <option value="Mme">Mme</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5 mb-3">
+                                        <label class="form-label">Nom</label>
+                                        <input type="text" name="nom" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-5 mb-3">
+                                        <label class="form-label">Prénom</label>
+                                        <input type="text" name="prenom" class="form-control" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Nom d'artiste (optionnel)</label>
+                                        <input type="text" name="nom_artiste" class="form-control">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Prénom d'artiste (optionnel)</label>
+                                        <input type="text" name="prenom_artiste" class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label class="form-label">Adresse</label>
+                                        <input type="text" name="adresse" class="form-control" required>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Code postal</label>
+                                        <input type="text" name="code_postal" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Ville</label>
+                                        <input type="text" name="ville" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Pays</label>
+                                        <input type="text" name="pays" class="form-control" value="France" required>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Téléphone</label>
+                                        <input type="tel" name="telephone" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" name="email" class="form-control" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Informations professionnelles -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Informations professionnelles</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Numéro MDA</label>
+                                        <input type="text" name="numero_mda" class="form-control">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Numéro SIRET</label>
+                                        <input type="text" name="numero_siret" class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Site internet</label>
+                                        <input type="url" name="site_internet" class="form-control">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Facebook</label>
+                                        <input type="url" name="facebook" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Œuvres -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Soumission des œuvres (maximum 10)</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="artworks">
+                                    <!-- Le premier formulaire d'œuvre est toujours présent -->
+                                    <div class="artwork-form mb-4">
+                                        <h6 class="mb-3">Œuvre #1</h6>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Numéro</label>
+                                                <input type="text" name="artworks[0][numero]" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Nom de l'œuvre</label>
+                                                <input type="text" name="artworks[0][nom]" class="form-control" required>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-12 mb-3">
+                                                <label class="form-label">Description</label>
+                                                <textarea name="artworks[0][description]" class="form-control" rows="3"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Technique</label>
+                                                <input type="text" name="artworks[0][technique]" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Prix</label>
+                                                <input type="number" name="artworks[0][prix]" class="form-control" required>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Largeur (cm)</label>
+                                                <input type="number" name="artworks[0][dimension_largeur]" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Hauteur (cm)</label>
+                                                <input type="number" name="artworks[0][dimension_hauteur]" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">Profondeur (cm)</label>
+                                                <input type="number" name="artworks[0][dimension_profondeur]" class="form-control">
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Photo de l'œuvre</label>
+                                            <input type="file" name="artworks[0][photo]" class="form-control" accept="image/*" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-secondary" onclick="addArtworkForm()">
+                                    <i class="fas fa-plus me-2"></i>Ajouter une œuvre
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                <i class="fas fa-paper-plane me-2"></i>Soumettre ma candidature
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let artworkCount = 1;
+const MAX_ARTWORKS = 10;
+
+function addArtworkForm() {
+    if (artworkCount >= MAX_ARTWORKS) {
+        alert('Vous ne pouvez pas soumettre plus de 10 œuvres.');
+        return;
+    }
+
+    const template = `
+        <div class="artwork-form mb-4">
+            <hr>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6>Œuvre #${artworkCount + 1}</h6>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeArtworkForm(this)">
+                    <i class="fas fa-trash me-1"></i>Supprimer
+                </button>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Numéro</label>
+                    <input type="text" name="artworks[${artworkCount}][numero]" class="form-control" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Nom de l'œuvre</label>
+                    <input type="text" name="artworks[${artworkCount}][nom]" class="form-control" required>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea name="artworks[${artworkCount}][description]" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Technique</label>
+                    <input type="text" name="artworks[${artworkCount}][technique]" class="form-control" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Prix</label>
+                    <input type="number" name="artworks[${artworkCount}][prix]" class="form-control" required>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Largeur (cm)</label>
+                    <input type="number" name="artworks[${artworkCount}][dimension_largeur]" class="form-control" required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Hauteur (cm)</label>
+                    <input type="number" name="artworks[${artworkCount}][dimension_hauteur]" class="form-control" required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Profondeur (cm)</label>
+                    <input type="number" name="artworks[${artworkCount}][dimension_profondeur]" class="form-control">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Photo de l'œuvre</label>
+                <input type="file" name="artworks[${artworkCount}][photo]" class="form-control" accept="image/*" required>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('artworks').insertAdjacentHTML('beforeend', template);
+    artworkCount++;
+}
+
+function removeArtworkForm(button) {
+    button.closest('.artwork-form').remove();
+    artworkCount--;
+    
+    // Mettre à jour les numéros des œuvres
+    document.querySelectorAll('.artwork-form h6').forEach((header, index) => {
+        header.textContent = `Œuvre #${index + 1}`;
+    });
+}
+</script>
+{% endblock %}

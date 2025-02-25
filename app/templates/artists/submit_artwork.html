@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="form-container">
+        <h2 class="mb-4">Inscription Exposition</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('artists.submit_artwork') }}" enctype="multipart/form-data">
+            <!-- Numéro de dossier -->
+            <div class="mb-4">
+                <label for="numero_dossier" class="form-label">DOSSIER No:</label>
+                <input type="text" class="form-control" id="numero_dossier" name="numero_dossier">
+                <small class="text-muted">Si vous souhaitez nous présenter plusieurs dossiers, merci d'indiquer le numéro.</small>
+            </div>
+
+            <!-- COORDONNEES PERSONNELLES -->
+            <h3 class="mb-4">COORDONNEES PERSONNELLES</h3>
+            
+            <div class="mb-3">
+                <label class="form-label">Civilité *</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="civilite" id="madame" value="Madame" required>
+                    <label class="form-check-label" for="madame">Madame</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="civilite" id="mademoiselle" value="Mademoiselle">
+                    <label class="form-check-label" for="mademoiselle">Mademoiselle</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="civilite" id="monsieur" value="Monsieur">
+                    <label class="form-check-label" for="monsieur">Monsieur</label>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nom" class="form-label">Nom *</label>
+                    <input type="text" class="form-control" id="nom" name="nom" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="categorie" class="form-label">Catégorie *</label>
+                    <select class="form-control" id="categorie" name="categorie" required>
+                        <option value="">Choisir...</option>
+                        <option value="peinture">Peinture</option>
+                        <option value="sculpture">Sculpture</option>
+                        <option value="photographie">Photographie</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="prenom" class="form-label">Prénom *</label>
+                    <input type="text" class="form-control" id="prenom" name="prenom" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="nom_artiste" class="form-label">Nom Artiste</label>
+                    <input type="text" class="form-control" id="nom_artiste" name="nom_artiste">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="prenom_artiste" class="form-label">Prénom Artiste</label>
+                    <input type="text" class="form-control" id="prenom_artiste" name="prenom_artiste">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="adresse" class="form-label">Adresse *</label>
+                <input type="text" class="form-control" id="adresse" name="adresse" required>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="code_postal" class="form-label">Code Postal *</label>
+                    <input type="text" class="form-control" id="code_postal" name="code_postal" required>
+                </div>
+                <div class="col-md-8 mb-3">
+                    <label for="ville" class="form-label">Ville *</label>
+                    <input type="text" class="form-control" id="ville" name="ville" required>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="pays" class="form-label">Pays</label>
+                <input type="text" class="form-control" id="pays" name="pays" value="France">
+            </div>
+
+            <div class="mb-3">
+                <label for="telephone" class="form-label">Tél Mobile *</label>
+                <input type="tel" class="form-control" id="telephone" name="telephone" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email *</label>
+                <input type="email" class="form-control" id="email" name="email" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="site_internet" class="form-label">Site Internet</label>
+                <input type="url" class="form-control" id="site_internet" name="site_internet">
+            </div>
+
+            <div class="mb-3">
+                <label for="facebook" class="form-label">Facebook/Autres</label>
+                <input type="text" class="form-control" id="facebook" name="facebook">
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="numero_mda" class="form-label">Numéro MDA</label>
+                    <input type="text" class="form-control" id="numero_mda" name="numero_mda">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="numero_siret" class="form-label">Numéro SIRET</label>
+                    <input type="text" class="form-control" id="numero_siret" name="numero_siret">
+                </div>
+            </div>
+
+            <!-- EDITION SUR LE CATALOGUE -->
+            <h3 class="mt-5 mb-4">EDITION SUR LE CATALOGUE ET SUR NOTRE SITE INTERNET</h3>
+            <p class="text-muted mb-4">Indiquez-nous en cochant les cases, les informations vous concernant que vous acceptez de voir éditer sur le catalogue de l'exposition et sur notre site Internet.</p>
+
+            <div class="mb-3">
+                <label for="nom_catalogue" class="form-label">Nom sur le catalogue *</label>
+                <input type="text" class="form-control" id="nom_catalogue" name="nom_catalogue" required>
+            </div>
+
+            <div class="mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="edition_adresse" name="edition_adresse">
+                    <label class="form-check-label" for="edition_adresse">Edition Adresse</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="edition_telephone" name="edition_telephone">
+                    <label class="form-check-label" for="edition_telephone">Edition Tél Mobile</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="edition_email" name="edition_email">
+                    <label class="form-check-label" for="edition_email">Edition Email</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="edition_site" name="edition_site">
+                    <label class="form-check-label" for="edition_site">Edition Site Internet</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="edition_facebook" name="edition_facebook">
+                    <label class="form-check-label" for="edition_facebook">Edition Facebook/Autres</label>
+                </div>
+            </div>
+
+            <!-- OEUVRES EXPOSEES -->
+            <h3 class="mt-5 mb-4">OEUVRES EXPOSEES</h3>
+            <p class="text-muted mb-4">Seules les photos des oeuvres en JPEG, GIF et PNG pourront être téléchargées. Les fichiers photos ne devront pas dépasser 2Mo.</p>
+
+            {% for i in range(1, 11) %}
+            <div class="artwork-section mb-5">
+                <h4>OEUVRE No {{ i }}</h4>
+                
+                <div class="mb-3">
+                    <label for="titre_{{ i }}" class="form-label">Titre {{ i }} :</label>
+                    <input type="text" class="form-control" id="titre_{{ i }}" name="titre_{{ i }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="technique_{{ i }}" class="form-label">Technique :</label>
+                    <input type="text" class="form-control" id="technique_{{ i }}" name="technique_{{ i }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Dimensions (L x H x P en cm) :</label>
+                    <div class="row">
+                        <div class="col">
+                            <input type="number" step="0.1" class="form-control" name="largeur_{{ i }}" placeholder="Largeur">
+                        </div>
+                        <div class="col">
+                            <input type="number" step="0.1" class="form-control" name="hauteur_{{ i }}" placeholder="Hauteur">
+                        </div>
+                        <div class="col">
+                            <input type="number" step="0.1" class="form-control" name="profondeur_{{ i }}" placeholder="Profondeur">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="prix_{{ i }}" class="form-label">Estimation (euros) :</label>
+                    <input type="number" class="form-control" id="prix_{{ i }}" name="prix_{{ i }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="photo_{{ i }}" class="form-label">Photo No {{ i }} :</label>
+                    <input type="file" class="form-control" id="photo_{{ i }}" name="photo_{{ i }}" accept="image/jpeg,image/png,image/gif">
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="text-center mt-5">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    ENVOYER
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .form-container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    .artwork-section {
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+    }
+
+    h3 {
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+    }
+
+    h4 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+    }
+
+    .btn-primary {
+        background-color: #3498db;
+        border-color: #3498db;
+        padding: 12px 30px;
+    }
+
+    .btn-primary:hover {
+        background-color: #2980b9;
+        border-color: #2980b9;
+    }
+</style>
+{% endblock %}

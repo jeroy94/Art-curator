@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Œuvres sélectionnées</h1>
+    
+    {% for artist in artists %}
+    {% if artist.artworks %}
+    <div class="mb-5">
+        <h2 class="mb-3">{{ artist.nom }} {{ artist.prenom }}</h2>
+        {% if artist.nom_artiste %}
+        <small class="text-muted">Nom d'artiste : {{ artist.nom_artiste }}</small>
+        {% endif %}
+        <div class="row">
+            {% for artwork in artist.artworks %}
+            {% if artwork.statut == 'selectionne' %}
+            <div class="col-md-4 mb-3">
+                <div class="card" style="width: 350px;">
+                    {% if artwork.photo_path %}
+                    <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                        <img src="{{ url_for('artworks.uploaded_file', filename=artwork.photo_path) }}" 
+                             style="max-width: 300px; max-height: 200px; width: auto; height: auto;"
+                             alt="{{ artwork.titre }}">
+                    </div>
+                    {% else %}
+                    <div class="bg-light text-center py-5">
+                        <i class="fas fa-image fa-3x text-muted"></i>
+                        <p class="text-muted mt-2">Pas de photo</p>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ artwork.titre }}</h5>
+                        <p class="card-text">
+                            {% if artwork.numero %}
+                            <small>N° : {{ artwork.numero }}</small><br>
+                            {% endif %}
+                            {% if artwork.technique %}
+                            Technique : {{ artwork.technique }}<br>
+                            {% endif %}
+                            {% if artwork.dimension_largeur and artwork.dimension_hauteur %}
+                            Dimensions : {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}
+                            {% if artwork.dimension_profondeur %}
+                            x{{ artwork.dimension_profondeur }}
+                            {% endif %}
+                            cm<br>
+                            {% endif %}
+                            {% if artwork.prix %}
+                            Prix : {{ "%.2f"|format(artwork.prix) }}€
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% if not artists %}
+    <div class="alert alert-info">
+        Aucune œuvre n'a encore été sélectionnée.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

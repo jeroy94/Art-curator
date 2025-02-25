@@ -14,13 +14,6 @@
         {% endwith %}
 
         <form method="POST" action="{{ url_for('artists.submit_artwork') }}" enctype="multipart/form-data">
-            <!-- Numéro de dossier -->
-            <div class="mb-4">
-                <label for="numero_dossier" class="form-label">DOSSIER No:</label>
-                <input type="text" class="form-control" id="numero_dossier" name="numero_dossier">
-                <small class="text-muted">Si vous souhaitez nous présenter plusieurs dossiers, merci d'indiquer le numéro.</small>
-            </div>
-
             <!-- COORDONNEES PERSONNELLES -->
             <h3 class="mb-4">COORDONNEES PERSONNELLES</h3>
             
@@ -127,43 +120,11 @@
                 </div>
             </div>
 
-            <!-- EDITION SUR LE CATALOGUE -->
-            <h3 class="mt-5 mb-4">EDITION SUR LE CATALOGUE ET SUR NOTRE SITE INTERNET</h3>
-            <p class="text-muted mb-4">Indiquez-nous en cochant les cases, les informations vous concernant que vous acceptez de voir éditer sur le catalogue de l'exposition et sur notre site Internet.</p>
-
-            <div class="mb-3">
-                <label for="nom_catalogue" class="form-label">Nom sur le catalogue *</label>
-                <input type="text" class="form-control" id="nom_catalogue" name="nom_catalogue" required>
-            </div>
-
-            <div class="mb-4">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="edition_adresse" name="edition_adresse">
-                    <label class="form-check-label" for="edition_adresse">Edition Adresse</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="edition_telephone" name="edition_telephone">
-                    <label class="form-check-label" for="edition_telephone">Edition Tél Mobile</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="edition_email" name="edition_email">
-                    <label class="form-check-label" for="edition_email">Edition Email</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="edition_site" name="edition_site">
-                    <label class="form-check-label" for="edition_site">Edition Site Internet</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="edition_facebook" name="edition_facebook">
-                    <label class="form-check-label" for="edition_facebook">Edition Facebook/Autres</label>
-                </div>
-            </div>
-
             <!-- OEUVRES EXPOSEES -->
             <h3 class="mt-5 mb-4">OEUVRES EXPOSEES</h3>
             <p class="text-muted mb-4">Seules les photos des oeuvres en JPEG, GIF et PNG pourront être téléchargées. Les fichiers photos ne devront pas dépasser 2Mo.</p>
 
-            {% for i in range(1, 11) %}
+            {% for i in range(1, 6) %}
             <div class="artwork-section mb-5">
                 <h4>OEUVRE No {{ i }}</h4>
                 
@@ -188,6 +149,21 @@
                         </div>
                         <div class="col">
                             <input type="number" step="0.1" class="form-control" name="profondeur_{{ i }}" placeholder="Profondeur">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Dimensions Cadre ou Socle (sculpteurs) (L x H x P en cm) :</label>
+                    <div class="row">
+                        <div class="col">
+                            <input type="number" step="0.1" class="form-control" name="cadre_largeur_{{ i }}" placeholder="Largeur">
+                        </div>
+                        <div class="col">
+                            <input type="number" step="0.1" class="form-control" name="cadre_hauteur_{{ i }}" placeholder="Hauteur">
+                        </div>
+                        <div class="col">
+                            <input type="number" step="0.1" class="form-control" name="cadre_profondeur_{{ i }}" placeholder="Profondeur">
                         </div>
                     </div>
                 </div>

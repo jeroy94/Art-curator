@@ -6,10 +6,13 @@ from datetime import datetime
 
 bp = Blueprint('artists', __name__)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
 def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_upload_path():
+    """Retourne le chemin absolu du dossier d'upload."""
+    return os.path.join(current_app.root_path, 'app', 'static', 'artworks')
 
 @bp.route('/submit', methods=['GET', 'POST'])
 def submit_artwork():
@@ -38,12 +41,7 @@ def submit_artwork():
                 numero_mda=request.form.get('numero_mda', ''),
                 numero_siret=request.form.get('numero_siret', ''),
                 categorie=request.form['categorie'],
-                nom_catalogue=request.form['nom_catalogue'],
-                edition_adresse=bool(request.form.get('edition_adresse')),
-                edition_telephone=bool(request.form.get('edition_telephone')),
-                edition_email=bool(request.form.get('edition_email')),
-                edition_site=bool(request.form.get('edition_site')),
-                edition_facebook=bool(request.form.get('edition_facebook'))
+                nom_catalogue=request.form.get('nom_catalogue', '')
             )
             db.session.add(artist)
             db.session.commit()
@@ -62,17 +60,37 @@ def submit_artwork():
                 photo_path = None
                 if photo and photo.filename:
                     if allowed_file(photo.filename):
-                        # Générer un nom de fichier unique
-                        filename = f"{artist.id}_{secure_filename(photo.filename)}"
-                        
-                        # S'assurer que le dossier uploads/artworks existe
-                        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'artworks')
-                        os.makedirs(upload_folder, exist_ok=True)
-                        
-                        # Sauvegarder la photo
-                        photo_path = os.path.join('uploads', 'artworks', filename)
-                        full_path = os.path.join(current_app.root_path, 'static', 'uploads', 'artworks', filename)
-                        photo.save(full_path)
+                        try:
+                            # Générer un nom de fichier sécurisé et unique
+                            original_filename = secure_filename(photo.filename)
+                            filename = f"{artist.id}_{i+1}_{original_filename}"
+                            print(f"Nom de fichier généré : {filename}")  # Log du nom de fichier
+                            
+                            # Créer le chemin relatif pour la base de données (utiliser des slashes forward)
+                            photo_path = f"artworks/{filename}"
+                            print(f"Chemin relatif pour la base de données : {photo_path}")  # Log du chemin relatif
+                            
+                            # S'assurer que le dossier d'upload existe
+                            upload_folder = get_upload_path()
+                            print(f"Chemin d'upload configuré : {upload_folder}")  # Debug log
+                            os.makedirs(upload_folder, exist_ok=True)
+                            print(f"Dossier d'upload vérifié/créé : {upload_folder}")  # Log de la création du dossier
+                            
+                            # Sauvegarder la photo
+                            full_path = os.path.join(upload_folder, filename)
+                            print(f"Chemin complet de sauvegarde : {full_path}")  # Debug log
+                            photo.save(full_path)
+                            print(f"Image sauvegardée : {full_path}")  # Debug log
+                            
+                            if not os.path.exists(full_path):
+                                print(f"ERREUR : Le fichier n'a pas été créé : {full_path}")
+                                flash(f"Erreur lors de la sauvegarde de l'image pour l'œuvre {i}", 'danger')
+                                continue
+                                
+                        except Exception as e:
+                            print(f"ERREUR lors de la sauvegarde de l'image : {str(e)}")
+                            flash(f"Erreur lors de la sauvegarde de l'image pour l'œuvre {i}: {str(e)}", 'danger')
+                            continue
                     else:
                         flash(f'Format de fichier non autorisé pour l\'œuvre {i}. Utilisez JPG, PNG ou GIF.', 'danger')
                         continue
@@ -82,10 +100,13 @@ def submit_artwork():
                     numero=f"{artist.id}-{i}",
                     titre=request.form.get(f'titre_{i}'),
                     technique=request.form.get(f'technique_{i}', ''),
-                    dimension_largeur=float(request.form.get(f'largeur_{i}', 0)),
-                    dimension_hauteur=float(request.form.get(f'hauteur_{i}', 0)),
-                    dimension_profondeur=float(request.form.get(f'profondeur_{i}', 0)),
-                    prix=float(request.form.get(f'prix_{i}', 0)),
+                    dimension_largeur=float(request.form.get(f'largeur_{i}', 0) or 0),
+                    dimension_hauteur=float(request.form.get(f'hauteur_{i}', 0) or 0),
+                    dimension_profondeur=float(request.form.get(f'profondeur_{i}', 0) or 0),
+                    cadre_largeur=float(request.form.get(f'cadre_largeur_{i}', 0) or 0),
+                    cadre_hauteur=float(request.form.get(f'cadre_hauteur_{i}', 0) or 0),
+                    cadre_profondeur=float(request.form.get(f'cadre_profondeur_{i}', 0) or 0),
+                    prix=float(request.form.get(f'prix_{i}', 0) or 0),
                     photo_path=photo_path,
                     artist_id=artist.id,
                     statut='en_attente'

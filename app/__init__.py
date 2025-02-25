@@ -32,6 +32,20 @@ def create_app():
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     
+    # Configurer la journalisation
+    import logging
+    from logging.handlers import RotatingFileHandler
+    
+    file_handler = RotatingFileHandler(app.config['LOG_FILE'], maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(app.config['LOG_LEVEL'])
+    app.logger.addHandler(file_handler)
+    
+    app.logger.setLevel(app.config['LOG_LEVEL'])
+    app.logger.info('Application démarrée')
+    
     # Register blueprints
     from app.routes import auth, artists, admin, artworks, test
     app.register_blueprint(auth.bp)

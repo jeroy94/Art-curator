@@ -18,9 +18,10 @@
                 <div class="card" style="width: 350px;">
                     {% if artwork.photo_path %}
                     <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
-                        <img src="{{ url_for('artworks.uploaded_file', filename=artwork.photo_path) }}" 
-                             style="max-width: 300px; max-height: 200px; width: auto; height: auto;"
-                             alt="{{ artwork.titre }}">
+                        <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
+                             style="max-width: 300px; max-height: 200px; width: auto; height: auto; object-fit: contain;"
+                             alt="{{ artwork.titre }}"
+                             onerror="this.onerror=null; this.src='/static/images/no-image.png';">
                     </div>
                     {% else %}
                     <div class="bg-light text-center py-5">
@@ -63,4 +64,34 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fonction pour logger les erreurs d'images
+function logImageError(img) {
+    console.error('Erreur de chargement image:', {
+        src: img.src,
+        alt: img.alt
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Ajouter des logs pour toutes les images
+    document.querySelectorAll('img').forEach(img => {
+        img.addEventListener('error', function() {
+            logImageError(this);
+            this.onerror = null;
+            this.src = '/static/images/no-image.png';
+        });
+        
+        img.addEventListener('load', function() {
+            console.log('Image chargée avec succès:', this.src);
+        });
+        
+        // Log initial
+        console.log('Image source:', img.src);
+    });
+});
+</script>
 {% endblock %}

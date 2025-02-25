@@ -2,6 +2,17 @@
 
 {% block content %}
 <div class="container mt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <h1 class="mb-4">Liste des œuvres par artiste</h1>
 
     {% for artist in artists %}
@@ -21,7 +32,7 @@
                         {% if artwork.photo_path %}
                         <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
                             <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal{{ artwork.id }}">
-                                <img src="{{ url_for('artworks.uploaded_file', filename=artwork.photo_path) }}" 
+                                <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
                                      style="max-width: 300px; max-height: 200px; width: auto; height: auto;"
                                      alt="{{ artwork.titre }}">
                             </a>
@@ -36,7 +47,7 @@
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                                     </div>
                                     <div class="modal-body text-center">
-                                        <img src="{{ url_for('artworks.uploaded_file', filename=artwork.photo_path) }}" 
+                                        <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
                                              style="max-width: 100%; height: auto;"
                                              alt="{{ artwork.titre }}">
                                     </div>
@@ -59,17 +70,21 @@
                                 </small><br>
                                 <small>Prix : {{ artwork.prix }}€</small>
                             </p>
-                            
+
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div class="btn-group">
-                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id, vote_type='up') }}" method="POST" style="display: inline;">
+                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id) }}" method="POST" style="display: inline;">
+                                        <input type="hidden" name="vote_type" value="up">
                                         <button type="submit" class="btn btn-sm {% if user_votes.get(artwork.id) == 'up' %}btn-success{% else %}btn-outline-success{% endif %}">
-                                            <i class="fas fa-thumbs-up"></i> <span>{{ up_votes.get(artwork.id, 0) }}</span>
+                                            <i class="fas fa-thumbs-up"></i> 
+                                            <span class="vote-count-up-{{ artwork.id }}">{{ up_votes.get(artwork.id, 0) }}</span>
                                         </button>
                                     </form>
-                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id, vote_type='down') }}" method="POST" style="display: inline;">
+                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id) }}" method="POST" style="display: inline;">
+                                        <input type="hidden" name="vote_type" value="down">
                                         <button type="submit" class="btn btn-sm {% if user_votes.get(artwork.id) == 'down' %}btn-danger{% else %}btn-outline-danger{% endif %}">
-                                            <i class="fas fa-thumbs-down"></i> <span>{{ down_votes.get(artwork.id, 0) }}</span>
+                                            <i class="fas fa-thumbs-down"></i> 
+                                            <span class="vote-count-down-{{ artwork.id }}">{{ down_votes.get(artwork.id, 0) }}</span>
                                         </button>
                                     </form>
                                 </div>
@@ -130,11 +145,11 @@ function updateVoteCounts() {
                 // Mettre à jour les compteurs
                 document.querySelector(`.vote-count-up-${artworkId}`).textContent = data.up_votes;
                 document.querySelector(`.vote-count-down-${artworkId}`).textContent = data.down_votes;
-                
+
                 // Mettre en évidence le vote de l'utilisateur
                 const upBtn = document.querySelector(`[data-artwork-id="${artworkId}"][data-vote-type="up"]`);
                 const downBtn = document.querySelector(`[data-artwork-id="${artworkId}"][data-vote-type="down"]`);
-                
+
                 if (data.user_vote === 'up') {
                     upBtn.classList.remove('btn-outline-success');
                     upBtn.classList.add('btn-success');

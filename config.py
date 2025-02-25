@@ -10,7 +10,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'art_database.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    UPLOAD_FOLDER = os.path.join(basedir, 'app', 'static', 'uploads')
+    UPLOAD_FOLDER = os.path.join(basedir, 'static', 'artworks')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
     # Configuration JWT
@@ -25,6 +25,10 @@ class Config:
     MAIL_PASSWORD = 'votre-mot-de-passe'  # À remplacer par votre mot de passe
     MAIL_DEFAULT_SENDER = 'votre-email@gmail.com'  # À remplacer par votre email
     ADMIN_EMAIL = 'admin@example.com'  # À remplacer par l'email de l'administrateur
+
+    # Configuration logging
+    LOG_FILE = os.path.join(basedir, 'app.log')
+    LOG_LEVEL = 'DEBUG'
 
     # Configuration CSRF
     WTF_CSRF_ENABLED = True

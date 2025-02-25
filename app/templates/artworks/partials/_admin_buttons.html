@@ -1,0 +1,26 @@
+<div class="btn-group w-100">
+    {% if artwork.statut == 'en_attente' %}
+    <form id="selection-form-{{ artwork.id }}" action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='selectionne') }}" method="POST" style="display: inline;">
+        <button type="submit" class="btn btn-success btn-sm">
+            <i class="fas fa-check"></i> Sélectionner
+        </button>
+    </form>
+    <form id="refuse-form-{{ artwork.id }}" action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='refuse') }}" method="POST" style="display: inline;">
+        <button type="submit" class="btn btn-danger btn-sm">
+            <i class="fas fa-times"></i> Refuser
+        </button>
+    </form>
+    {% elif artwork.statut == 'selectionne' %}
+    <form id="annuler-selection-form-{{ artwork.id }}" action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='en_attente') }}" method="POST" style="display: inline;">
+        <button type="submit" class="btn btn-warning btn-sm">
+            <i class="fas fa-undo"></i> Annuler la sélection
+        </button>
+    </form>
+    {% else %}
+    <form id="annuler-refus-form-{{ artwork.id }}" action="{{ url_for('artworks.selection', artwork_id=artwork.id, action='en_attente') }}" method="POST" style="display: inline;">
+        <button type="submit" class="btn btn-warning btn-sm">
+            <i class="fas fa-undo"></i> Annuler le refus
+        </button>
+    </form>
+    {% endif %}
+</div>

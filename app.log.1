@@ -1,0 +1,100 @@
+2025-02-25 16:45:45,226 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 16:46:04,375 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 16:46:06,242 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 16:46:08,216 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 16:51:06,333 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 16:55:17,934 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 16:55:28,425 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 17:02:18,304 INFO: Application démarrée [in F:\image_to_3d\app\__init__.py:72]
+2025-02-25 17:03:53,044 ERROR: Exception on /artworks/list [GET] [in C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py:1414]
+Traceback (most recent call last):
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\utils.py", line 284, in decorated_view
+    elif not current_user.is_authenticated:
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\werkzeug\local.py", line 318, in __get__
+    obj = instance._get_current_object()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\werkzeug\local.py", line 526, in _get_current_object
+    return get_name(local())
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\utils.py", line 25, in <lambda>
+    current_user = LocalProxy(lambda: _get_user())
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\utils.py", line 370, in _get_user
+    current_app.login_manager._load_user()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\login_manager.py", line 364, in _load_user
+    user = self._user_callback(user_id)
+  File "F:\image_to_3d\app\__init__.py", line 48, in load_user
+    def load_user(user_id):
+  File "<string>", line 2, in get
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\util\deprecations.py", line 386, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\query.py", line 1136, in get
+    return self._get_impl(ident, loading.load_on_pk_identity)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\query.py", line 1145, in _get_impl
+    return self.session._get_impl(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\session.py", line 3833, in _get_impl
+    return db_load_fn(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\loading.py", line 690, in load_on_pk_identity
+    session.execute(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\session.py", line 2308, in execute
+    return self._execute_internal(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\session.py", line 2178, in _execute_internal
+    bind = self.get_bind(**bind_arguments)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_sqlalchemy\session.py", line 53, in get_bind
+    engines = self._db.engines
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_sqlalchemy\extension.py", line 690, in engines
+    raise RuntimeError(
+RuntimeError: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+2025-02-25 17:04:18,924 ERROR: Exception on /artworks/list [GET] [in C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py:1414]
+Traceback (most recent call last):
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask\app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\utils.py", line 284, in decorated_view
+    elif not current_user.is_authenticated:
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\werkzeug\local.py", line 318, in __get__
+    obj = instance._get_current_object()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\werkzeug\local.py", line 526, in _get_current_object
+    return get_name(local())
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\utils.py", line 25, in <lambda>
+    current_user = LocalProxy(lambda: _get_user())
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\utils.py", line 370, in _get_user
+    current_app.login_manager._load_user()
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_login\login_manager.py", line 364, in _load_user
+    user = self._user_callback(user_id)
+  File "F:\image_to_3d\app\__init__.py", line 48, in load_user
+    # Create database tables
+  File "<string>", line 2, in get
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\util\deprecations.py", line 386, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\query.py", line 1136, in get
+    return self._get_impl(ident, loading.load_on_pk_identity)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\query.py", line 1145, in _get_impl
+    return self.session._get_impl(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\session.py", line 3833, in _get_impl
+    return db_load_fn(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\loading.py", line 690, in load_on_pk_identity
+    session.execute(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\session.py", line 2308, in execute
+    return self._execute_internal(
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\session.py", line 2178, in _execute_internal
+    bind = self.get_bind(**bind_arguments)
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_sqlalchemy\session.py", line 53, in get_bind
+    engines = self._db.engines
+  File "C:\Users\Windows\AppData\Local\Programs\Python\Python310\lib\site-packages\flask_sqlalchemy\extension.py", line 690, in engines
+    raise RuntimeError(
+RuntimeError: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?

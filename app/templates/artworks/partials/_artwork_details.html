@@ -1,0 +1,8 @@
+<p class="card-text">
+    <small>N° : {{ artwork.numero }}</small><br>
+    <small>Technique : {{ artwork.technique }}</small><br>
+    <small>Dimensions : {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}
+        {% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm
+    </small><br>
+    <small>Prix : {{ artwork.prix }}€</small>
+</p>

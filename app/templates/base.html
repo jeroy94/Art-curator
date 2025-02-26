@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Galerie d'Art{% endblock %}</title>
+    <title>{% block title %}Nouveau Titre{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #34495e;
-            --accent-color: #3498db;
+            --primary-color: #4a4a4a;
+            --secondary-color: #6a6a6a;
+            --accent-color: #8a8a8a;
         }
         
         body {
@@ -41,7 +41,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(45deg, rgba(52, 152, 219, 0.1), rgba(52, 73, 94, 0.1));
+            background: linear-gradient(45deg, rgba(138, 138, 138, 0.1), rgba(106, 106, 106, 0.1));
             pointer-events: none;
         }
         
@@ -59,8 +59,8 @@
         }
         
         .btn-primary:hover {
-            background-color: #2980b9;
-            border-color: #2980b9;
+            background-color: #7a7a7a;
+            border-color: #7a7a7a;
             transform: translateY(-2px);
         }
         
@@ -89,14 +89,21 @@
         .fa-thumbs-up:hover, .fa-thumbs-down:hover {
             color: var(--accent-color);
         }
+        
+        .navbar-brand-logo {
+            max-height: 50px;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">
-                <i class="fas fa-cube me-2"></i>
-                Galerie d'Art
+                <img src="{{ url_for('static', filename='images/logo.jpeg') }}" alt="Logo" class="navbar-brand-logo me-2">
+                Destructuralisme Figuratif
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -153,7 +160,7 @@
 
     <footer class="bg-light py-4 mt-5">
         <div class="container text-center">
-            <p class="mb-0">&copy; 2025 Galerie d'Art. Tous droits réservés.</p>
+            <p class="mb-0">&copy; 2025 Destructuralisme Figuratif. Tous droits réservés.</p>
         </div>
     </footer>
 

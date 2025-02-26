@@ -75,53 +75,6 @@ def submit():
         db.session.rollback()
         return jsonify({'error': 'Erreur lors de la soumission'}), 500
 
-@bp.route('/list')
-@login_required
-def list_artworks():
-    # Récupérer tous les artistes avec leurs œuvres
-    artists = Artist.query.all()
-    artists_with_artworks = []
-
-    # Dictionnaires pour stocker les votes
-    user_votes = {}
-    up_votes = {}
-    down_votes = {}
-
-    for artist in artists:
-        # Ne garder que les artistes avec des œuvres
-        if artist.artworks:
-            # Calculer les votes pour chaque œuvre
-            for artwork in artist.artworks:
-                # Récupérer le vote de l'utilisateur courant pour cette œuvre
-                user_vote = Vote.query.filter_by(
-                    user_id=current_user.id, 
-                    artwork_id=artwork.id
-                ).first()
-
-                # Stocker le vote de l'utilisateur
-                if user_vote:
-                    # Utiliser str(artwork.id) comme clé
-                    user_votes[str(artwork.id)] = user_vote.vote_type
-
-                # Compter les votes up et down
-                up_votes[artwork.id] = Vote.query.filter_by(
-                    artwork_id=artwork.id, 
-                    vote_type='up'
-                ).count()
-                
-                down_votes[artwork.id] = Vote.query.filter_by(
-                    artwork_id=artwork.id, 
-                    vote_type='down'
-                ).count()
-
-            artists_with_artworks.append(artist)
-
-    return render_template('artworks/list.html', 
-                         artists=artists_with_artworks,
-                         user_votes=user_votes,
-                         up_votes=up_votes,
-                         down_votes=down_votes)
-
 @bp.route('/vote/<int:artwork_id>', methods=['POST'])
 @login_required
 def vote(artwork_id):
@@ -325,7 +278,7 @@ def fix_image_paths():
     else:
         flash('Aucun chemin d\'image à corriger.', 'info')
     
-    return redirect(url_for('artworks.list_artworks'))
+    return redirect(url_for('artworks.selected_artworks'))
 
 @bp.route('/validate_all_votes', methods=['POST'])
 @login_required

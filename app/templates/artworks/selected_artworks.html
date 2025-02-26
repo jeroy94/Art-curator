@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-5">
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <h1>Œuvres Sélectionnées</h1>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('artworks.export_selected_artworks_pdf') }}" class="btn btn-primary">
+                <i class="fas fa-file-pdf me-2"></i>Exporter en PDF
+            </a>
+        </div>
+    </div>
+
+    {% for artist in artists %}
+    <div class="card mb-4">
+        <div class="card-header" style="background-color: white; color: black; border-bottom: 2px solid #007bff;">
+            <h3 class="mb-0">
+                {{ artist.nom }} {{ artist.prenom }}
+                {% if artist.nom_artiste and artist.nom_artiste.strip() != '' %}
+                <small class="text-muted" style="font-size: 0.7em; margin-left: 10px;">({{ artist.nom_artiste }})</small>
+                {% endif %}
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for artwork in artist.artworks %}
+                    {% if artwork.statut == 'selectionne' %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card" style="width: 350px;">
+                            {% if artwork.photo_path %}
+                            <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                                <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
+                                     class="img-fluid" 
+                                     style="max-width: 300px; max-height: 200px; object-fit: contain;"
+                                     alt="{{ artwork.titre }}">
+                            </div>
+                            {% endif %}
+                            <div class="card-body">
+                                <h5 class="card-title">{{ artwork.titre }}</h5>
+                                <p class="card-text">
+                                    <strong>Technique :</strong> {{ artwork.technique }}<br>
+                                    <strong>Dimensions :</strong> 
+                                    {{ artwork.dimension_largeur|int }}x{{ artwork.dimension_hauteur|int }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur|int }}{% endif %} cm
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

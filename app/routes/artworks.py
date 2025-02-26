@@ -3,6 +3,14 @@ from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 from app.models.models import db, Artwork, Vote, Artist
 import os
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from flask import send_file
+import io
+from PIL import Image as PILImage
 
 bp = Blueprint('artworks', __name__, url_prefix='/artworks')
 
@@ -205,14 +213,20 @@ def selection(artwork_id, action):
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Erreur lors de la mise à jour du statut'}), 500
 
-@bp.route('/selected')
+@bp.route('/selected_artworks')
+@login_required
 def selected_artworks():
     """Affiche la liste des œuvres sélectionnées par artiste."""
-    artists = Artist.query.join(Artist.artworks).filter(
-        Artwork.statut == 'selectionne'
-    ).distinct().order_by(Artist.nom.asc()).all()
+    # Récupérer tous les artistes avec leurs œuvres sélectionnées
+    artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').order_by(Artist.nom).all()
     
-    return render_template('artworks/selected.html', artists=artists)
+    # Filtrer les artistes pour ne garder que ceux avec des œuvres sélectionnées
+    artists_with_selected = [
+        artist for artist in artists 
+        if any(artwork.statut == 'selectionne' for artwork in artist.artworks)
+    ]
+    
+    return render_template('artworks/selected_artworks.html', artists=artists_with_selected)
 
 @bp.route('/uploads/<path:filename>')
 def uploaded_file(filename):
@@ -486,7 +500,7 @@ def salon_de_vote():
                 votes = {}
                 for key, value in request.form.items():
                     if key.startswith('vote_'):
-                        artwork_id = int(key.split('_')[1])
+                        artwork_id = key.split('_')[1]
                         votes[artwork_id] = value
                 
                 current_app.logger.info(f"Votes reçus : {votes}")
@@ -499,7 +513,7 @@ def salon_de_vote():
                 selections = {}
                 for key, value in request.form.items():
                     if key.startswith('selection_'):
-                        artwork_id = int(key.split('_')[1])
+                        artwork_id = key.split('_')[1]
                         selections[artwork_id] = value
                 
                 current_app.logger.info(f"Sélections reçues : {selections}")
@@ -688,3 +702,288 @@ def update_artwork_selections(selected_artworks, refused_artworks):
             artwork.statut = 'refuse'
     
     db.session.commit()
+
+def resize_image_for_pdf(image_path, max_height_mm=20):
+    """Redimensionne une image pour l'export PDF en préservant ses proportions."""
+    try:
+        # Ouvrir l'image
+        img = PILImage.open(image_path)
+        
+        # Convertir mm en pixels (approximatif, 1 mm ≈ 3.78 pixels)
+        max_height_px = int(max_height_mm * 3.78)
+        
+        # Calculer le ratio de redimensionnement
+        width, height = img.size
+        
+        # Si l'image est plus petite que la hauteur maximale, ne pas redimensionner
+        if height <= max_height_px:
+            return img
+        
+        # Calculer la nouvelle largeur proportionnellement
+        ratio = max_height_px / height
+        new_width = int(width * ratio)
+        
+        # Redimensionner l'image avec une méthode de haute qualité
+        img_resized = img.resize((new_width, max_height_px), PILImage.LANCZOS)
+        
+        current_app.logger.info(f"Image originale: {width}x{height}")
+        current_app.logger.info(f"Image redimensionnée: {new_width}x{max_height_px}")
+        
+        return img_resized
+    except Exception as e:
+        current_app.logger.error(f"Erreur de redimensionnement: {e}")
+        return None
+
+@bp.route('/export_selected_artworks_pdf')
+@login_required
+def export_selected_artworks_pdf():
+    """Exporter les œuvres sélectionnées en PDF."""
+    try:
+        # Récupérer les artistes avec leurs œuvres sélectionnées
+        artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').order_by(Artist.nom).all()
+        
+        # Préparer le buffer PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        
+        # Style personnalisé pour les titres et le contenu
+        title_style = styles['Heading1']
+        artist_style = ParagraphStyle(
+            'ArtistStyle', 
+            parent=styles['Heading2'], 
+            textColor=colors.navy
+        )
+        normal_style = styles['Normal']
+        
+        # Contenu du PDF
+        story = []
+        
+        # Titre principal
+        story.append(Paragraph("Catalogue des Œuvres Sélectionnées", title_style))
+        story.append(Spacer(1, 12))
+        
+        for artist in artists:
+            # Nom de l'artiste
+            artist_name = artist.nom_artiste or f"{artist.prenom} {artist.nom}"
+            story.append(Paragraph(f"<b>{artist_name}</b>", artist_style))
+            story.append(Spacer(1, 6))
+            
+            for artwork in artist.artworks:
+                if artwork.statut == 'selectionne':
+                    # Description des dimensions
+                    dimensions_parts = []
+                    for dim_name in ['dimension_largeur', 'dimension_hauteur', 'dimension_profondeur']:
+                        dim = getattr(artwork, dim_name)
+                        if dim is not None:
+                            dimensions_parts.append(str(int(dim)))
+
+                    dimensions_str = 'x'.join(dimensions_parts) + ' cm' if dimensions_parts else 'Non renseignées'
+                    
+                    # Gérer l'image de l'œuvre
+                    artwork_img = Paragraph("Aucune image", normal_style)
+                    
+                    # Vérifier si le chemin de la photo est défini et non vide
+                    if artwork.photo_path and artwork.photo_path.strip():
+                        # Extraire le nom de fichier, en supprimant le préfixe 'artworks/' si présent
+                        photo_filename = artwork.photo_path.strip().split('/')[-1]
+                        
+                        # Chemins possibles de l'image
+                        possible_paths = [
+                            os.path.join(current_app.root_path, 'app', 'static', artwork.photo_path),
+                            os.path.join(current_app.root_path, 'app', 'static', 'artworks', photo_filename),
+                            os.path.join(current_app.root_path, 'static', 'artworks', photo_filename),
+                            os.path.join(current_app.root_path, 'static', artwork.photo_path)
+                        ]
+                        
+                        img_path = None
+                        for path in possible_paths:
+                            if os.path.exists(path):
+                                img_path = path
+                                break
+                        
+                        if img_path:
+                            try:
+                                # Redimensionner l'image
+                                pil_img = resize_image_for_pdf(img_path)
+                                
+                                if pil_img:
+                                    # Sauvegarder l'image temporairement
+                                    temp_image_path = os.path.join(current_app.root_path, 'static', f'temp_artwork_{artwork.id}.png')
+                                    pil_img.save(temp_image_path)
+                                    
+                                    # Calculer la largeur proportionnelle
+                                    img_width = pil_img.width
+                                    img_height = pil_img.height
+                                    
+                                    # Créer l'image pour ReportLab
+                                    artwork_img = Image(temp_image_path, width=img_width*mm/3.78, height=img_height*mm/3.78)
+                                else:
+                                    artwork_img = Paragraph("Image non disponible", normal_style)
+                            except Exception as e:
+                                current_app.logger.error(f"Erreur lors du traitement de l'image: {e}")
+                                artwork_img = Paragraph(f"Erreur de traitement: {e}", normal_style)
+                    
+                    # Créer un tableau pour chaque œuvre
+                    table_data = [
+                        [artwork_img, Paragraph(f"""
+                            <b>Titre :</b> {artwork.titre}<br/>
+                            <b>Technique :</b> {artwork.technique}<br/>
+                            <b>Dimensions :</b> {dimensions_str}
+                        """, normal_style), 
+                        Paragraph(f"""
+                            <b>Prix :</b> {artwork.prix} € {"" if artwork.prix else "Non défini"}
+                        """, ParagraphStyle(
+                            'PriceStyle', 
+                            parent=normal_style, 
+                            alignment=2,  # Alignement à droite
+                            textColor=colors.darkblue
+                        ))]
+                    ]
+                    
+                    # Largeur totale de la page A4
+                    page_width = 210 * mm
+                    
+                    table = Table(table_data, 
+                        colWidths=[30*mm, 130*mm, 40*mm],  # Image, détails, prix
+                        rowHeights=[70]  # Augmentation de la hauteur
+                    )
+                    table.setStyle(TableStyle([
+                        ('ALIGN', (0,0), (0,0), 'LEFT'),     # Image alignée à gauche
+                        ('ALIGN', (2,0), (2,0), 'RIGHT'),    # Prix aligné à droite
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                        ('GRID', (0,0), (-1,-1), 1, colors.black),
+                        ('BACKGROUND', (0,0), (-1,0), colors.beige)
+                    ]))
+                    
+                    story.append(table)
+        
+        # Construire le PDF
+        doc.build(story)
+        
+        # Réinitialiser le buffer
+        buffer.seek(0)
+        
+        # Renvoyer le PDF
+        return send_file(
+            buffer, 
+            download_name='Catalogue_Artworks.pdf', 
+            as_attachment=True, 
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        current_app.logger.error(f"Erreur lors de la génération du PDF: {e}")
+        flash("Une erreur est survenue lors de la génération du PDF.", "error")
+        return redirect(url_for('main.index'))
+
+@bp.route('/export_selected_pdf', methods=['GET'])
+@login_required
+def export_selected_pdf():
+    """Exporte les œuvres sélectionnées en PDF."""
+    # Récupérer tous les artistes avec leurs œuvres sélectionnées
+    artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').order_by(Artist.nom).all()
+    
+    # Créer un buffer en mémoire pour le PDF
+    buffer = io.BytesIO()
+    
+    # Créer le document PDF
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    
+    # Styles pour le PDF
+    styles = getSampleStyleSheet()
+    title_style = styles['Title']
+    normal_style = styles['Normal']
+    
+    # Éléments à ajouter au PDF
+    elements = []
+    
+    # Titre du document
+    elements.append(Paragraph("Œuvres Sélectionnées", title_style))
+    elements.append(Spacer(1, 12))
+    
+    # Parcourir les artistes et leurs œuvres
+    for artist in artists:
+        selected_artworks = [artwork for artwork in artist.artworks if artwork.statut == 'selectionne']
+        
+        if selected_artworks:
+            # Nom de l'artiste
+            artist_name = f"{artist.nom} {artist.prenom}"
+            if artist.nom_artiste:
+                artist_name += f" ({artist.nom_artiste})"
+            elements.append(Paragraph(artist_name, styles['Heading2']))
+            
+            # Tableau pour chaque artiste
+            for artwork in selected_artworks:
+                # Ajouter le titre de l'œuvre
+                elements.append(Paragraph(artwork.titre, styles['Heading3']))
+                
+                # Ajouter l'image si elle existe
+                artwork_img = Paragraph("Aucune image", normal_style)
+                if artwork.photo_path:
+                    try:
+                        # Chemin complet de l'image
+                        image_path = os.path.join(current_app.root_path, 'app', 'static', artwork.photo_path)
+                        
+                        # Vérifier si l'image existe
+                        if os.path.exists(image_path):
+                            # Redimensionner l'image
+                            img = resize_image_for_pdf(image_path)
+                            
+                            if img:
+                                try:
+                                    # Sauvegarder l'image temporairement
+                                    temp_image_path = os.path.join(current_app.root_path, 'static', f'temp_artwork_{artwork.id}.png')
+                                    img.save(temp_image_path)
+                                    
+                                    # Calculer la largeur proportionnelle
+                                    img_width = img.width
+                                    img_height = img.height
+                                    
+                                    # Créer l'image pour ReportLab
+                                    artwork_img = Image(temp_image_path, width=img_width*mm/3.78, height=img_height*mm/3.78)
+                                except Exception as e:
+                                    current_app.logger.error(f"Erreur lors du traitement de l'image: {e}")
+                                    artwork_img = Paragraph(f"Erreur de traitement: {e}", normal_style)
+                            else:
+                                artwork_img = Paragraph("Image non disponible", normal_style)
+                    except Exception as e:
+                        current_app.logger.error(f"Erreur lors du redimensionnement de l'image: {e}")
+                        artwork_img = Paragraph(f"Erreur de redimensionnement: {e}", normal_style)
+                
+                # Créer un tableau pour chaque œuvre
+                table_data = [
+                    [artwork_img, Paragraph(f"""
+                        <b>Titre :</b> {artwork.titre}<br/>
+                        <b>Technique :</b> {artwork.technique}<br/>
+                        <b>Dimensions :</b> {artwork.dimension_largeur}x{artwork.dimension_hauteur} cm<br/>
+                        <b>Prix :</b> {artwork.prix} € {"" if artwork.prix else "Non défini"}
+                    """, normal_style)]
+                ]
+                
+                # Largeur totale de la page A4
+                page_width = 210 * mm
+                
+                table = Table(table_data, colWidths=[15*mm, page_width - 15*mm], rowHeights=[70])
+                table.setStyle(TableStyle([
+                    ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('GRID', (0,0), (-1,-1), 1, colors.black),
+                    ('BACKGROUND', (0,0), (-1,0), colors.beige)
+                ]))
+                
+                elements.append(table)
+                elements.append(Spacer(1, 12))
+    
+    # Construire le PDF
+    doc.build(elements)
+    
+    # Réinitialiser le buffer
+    buffer.seek(0)
+    
+    # Renvoyer le PDF
+    return send_file(
+        buffer, 
+        download_name='Artworks_Selection.pdf', 
+        as_attachment=True, 
+        mimetype='application/pdf'
+    )

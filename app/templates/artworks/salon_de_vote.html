@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Salon de Vote</h1>
+    
+    <form method="POST" id="vote-form" action="{{ url_for('artworks.salon_de_vote') }}">
+        {% for artiste_groupe in artistes_data %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3>{{ artiste_groupe.nom }}</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for artwork in artiste_groupe.artworks %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card" style="width: 350px;">
+                            {% if artwork.photo_path %}
+                            <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                                <a href="#" 
+                                   data-bs-toggle="modal" 
+                                   data-bs-target="#modal-{{ artwork.id }}"
+                                   data-artwork-id="{{ artwork.id }}">
+                                    <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
+                                         class="img-fluid" 
+                                         style="max-width: 300px; max-height: 200px; object-fit: contain;"
+                                         alt="{{ artwork.titre }}">
+                                </a>
+                            </div>
+                            {% endif %}
+                            <div class="card-body">
+                                <h5 class="card-title">{{ artwork.titre }}</h5>
+                                <p class="card-text">
+                                    <strong>Technique :</strong> {{ artwork.technique }}<br>
+                                    <strong>Année :</strong> {{ artwork.annee_creation }}
+                                </p>
+                                
+                                <div class="vote-section">
+                                    <div class="btn-group" role="group">
+                                        <input type="radio" class="btn-check" name="vote_{{ artwork.id }}" id="vote_up_{{ artwork.id }}" value="up" 
+                                               {% if user_votes.get(artwork.id|string) == 'up' %}checked{% endif %}>
+                                        <label class="btn btn-outline-success" for="vote_up_{{ artwork.id }}">
+                                            <i class="bi bi-hand-thumbs-up"></i> Pour
+                                        </label>
+
+                                        <input type="radio" class="btn-check" name="vote_{{ artwork.id }}" id="vote_down_{{ artwork.id }}" value="down"
+                                               {% if user_votes.get(artwork.id|string) == 'down' %}checked{% endif %}>
+                                        <label class="btn btn-outline-danger" for="vote_down_{{ artwork.id }}">
+                                            <i class="bi bi-hand-thumbs-down"></i> Contre
+                                        </label>
+                                    </div>
+                                    
+                                    {% if current_user.is_admin %}
+                                    <div class="selection-section mt-2">
+                                        <div class="btn-group" role="group">
+                                            <input type="radio" class="btn-check" name="selection_{{ artwork.id }}" id="selection_selectionne_{{ artwork.id }}" value="selectionne"
+                                                   {% if user_selections.get(artwork.id|string) == 'selectionne' %}checked{% endif %}>
+                                            <label class="btn btn-outline-success" for="selection_selectionne_{{ artwork.id }}">
+                                                <i class="bi bi-check-circle"></i> Sélectionné
+                                            </label>
+
+                                            <input type="radio" class="btn-check" name="selection_{{ artwork.id }}" id="selection_refuse_{{ artwork.id }}" value="refuse"
+                                                   {% if user_selections.get(artwork.id|string) == 'refuse' %}checked{% endif %}>
+                                            <label class="btn btn-outline-danger" for="selection_refuse_{{ artwork.id }}">
+                                                <i class="bi bi-x-circle"></i> Refusé
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="vote-stats text-muted mt-2">
+                                        <small>
+                                            Votes totaux : {{ artwork.total_votes }} 
+                                            (Pour : {{ artwork.up_votes }} | Contre : {{ artwork.down_votes }})
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-primary btn-lg me-2" id="validate-votes" name="action" value="vote">
+                Valider mes votes
+            </button>
+            {% if current_user.is_admin %}
+            <button type="submit" class="btn btn-success btn-lg" id="validate-selection" name="action" value="selection">
+                Valider mes sélections
+            </button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block modal %}
+{% for artiste_groupe in artistes_data %}
+    {% for artwork in artiste_groupe.artworks %}
+    <!-- Modal pour l'image de l'œuvre -->
+    <div class="modal fade" id="modal-{{ artwork.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ artwork.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalLabel{{ artwork.id }}">{{ artwork.titre }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
+                         alt="{{ artwork.titre }}" 
+                         class="img-fluid" 
+                         style="max-height: 70vh; max-width: 100%;">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('vote-form');
+    const validateVotesBtn = document.getElementById('validate-votes');
+    const validateSelectionBtn = document.getElementById('validate-selection');
+
+    function sendAjaxRequest(action) {
+        const formData = new FormData(form);
+        formData.append('action', action);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('Accept', 'application/json');
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    console.log('Réponse du serveur :', response);
+                    
+                    // Afficher un message de succès
+                    alert(response.message || 'Opération réussie');
+                } catch (e) {
+                    console.error('Erreur de parsing JSON', e);
+                    alert('Une erreur est survenue lors du traitement de la réponse');
+                }
+            } else {
+                console.error('Erreur de requête', xhr.status, xhr.statusText);
+                alert('Une erreur est survenue');
+            }
+        };
+
+        xhr.onerror = function() {
+            console.error('Erreur réseau');
+            alert('Erreur de connexion');
+        };
+
+        const params = new URLSearchParams(formData).toString();
+        xhr.send(params);
+    }
+
+    validateVotesBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        sendAjaxRequest('vote');
+    });
+
+    {% if current_user.is_admin %}
+    validateSelectionBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        sendAjaxRequest('selection');
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, send_from_directory, current_app, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, send_from_directory, current_app, request, jsonify, redirect, url_for, flash, session
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 from app.models.models import db, Artwork, Vote, Artist
@@ -78,38 +78,44 @@ def submit():
 @bp.route('/list')
 @login_required
 def list_artworks():
-    artists = db.session.query(Artist.id, Artist.nom, Artist.prenom, Artist.nom_artiste)\
-        .distinct()\
-        .all()
-    
-    # Créer une liste d'artistes avec leurs œuvres
+    # Récupérer tous les artistes avec leurs œuvres
+    artists = Artist.query.all()
     artists_with_artworks = []
-    for artist in artists:
-        artworks = Artwork.query.filter_by(artist_id=artist[0]).all()
-        artist_dict = {
-            'id': artist[0],
-            'nom': artist[1],
-            'prenom': artist[2],
-            'nom_artiste': artist[3],
-            'artworks': artworks
-        }
-        artists_with_artworks.append(artist_dict)
-    
-    # Récupérer les votes de l'utilisateur et les compteurs
+
+    # Dictionnaires pour stocker les votes
     user_votes = {}
     up_votes = {}
     down_votes = {}
-    
-    votes = Vote.query.all()
-    for vote in votes:
-        if vote.user_id == current_user.id:
-            user_votes[vote.artwork_id] = vote.vote_type
-        
-        if vote.vote_type == 'up':
-            up_votes[vote.artwork_id] = up_votes.get(vote.artwork_id, 0) + 1
-        else:
-            down_votes[vote.artwork_id] = down_votes.get(vote.artwork_id, 0) + 1
-    
+
+    for artist in artists:
+        # Ne garder que les artistes avec des œuvres
+        if artist.artworks:
+            # Calculer les votes pour chaque œuvre
+            for artwork in artist.artworks:
+                # Récupérer le vote de l'utilisateur courant pour cette œuvre
+                user_vote = Vote.query.filter_by(
+                    user_id=current_user.id, 
+                    artwork_id=artwork.id
+                ).first()
+
+                # Stocker le vote de l'utilisateur
+                if user_vote:
+                    # Utiliser str(artwork.id) comme clé
+                    user_votes[str(artwork.id)] = user_vote.vote_type
+
+                # Compter les votes up et down
+                up_votes[artwork.id] = Vote.query.filter_by(
+                    artwork_id=artwork.id, 
+                    vote_type='up'
+                ).count()
+                
+                down_votes[artwork.id] = Vote.query.filter_by(
+                    artwork_id=artwork.id, 
+                    vote_type='down'
+                ).count()
+
+            artists_with_artworks.append(artist)
+
     return render_template('artworks/list.html', 
                          artists=artists_with_artworks,
                          user_votes=user_votes,
@@ -119,44 +125,91 @@ def list_artworks():
 @bp.route('/vote/<int:artwork_id>', methods=['POST'])
 @login_required
 def vote(artwork_id):
+    # Vérifier si c'est une requête AJAX
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        current_app.logger.warning(f'Vote attempt without AJAX: {request.headers}')
+        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
+
+    # Log de débogage
+    current_app.logger.info(f'Vote received for artwork {artwork_id} by user {current_user.id}')
+    current_app.logger.info(f'Vote type: {request.form.get("vote_type")}')
+
+    # Stocker temporairement le vote en session
+    session['temp_vote'] = {
+        'artwork_id': artwork_id,
+        'vote_type': request.form.get('vote_type')
+    }
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Vote en attente de validation'
+    })
+
+@bp.route('/validate_vote', methods=['POST'])
+@login_required
+def validate_vote():
+    # Vérifier si c'est une requête AJAX
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        current_app.logger.warning(f'Vote validation attempt without AJAX: {request.headers}')
+        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
+
+    # Log de débogage
+    current_app.logger.info(f'Vote validation for user {current_user.id}')
+
+    # Récupérer le vote temporaire depuis la session
+    temp_vote = session.get('temp_vote')
+    if not temp_vote:
+        current_app.logger.warning(f'No temporary vote found for user {current_user.id}')
+        return jsonify({'status': 'error', 'message': 'Aucun vote en attente'}), 400
+
+    artwork_id = temp_vote['artwork_id']
+    vote_type = temp_vote['vote_type']
     artwork = Artwork.query.get_or_404(artwork_id)
-    vote_type = request.form.get('vote_type')
-    
-    if vote_type not in ['up', 'down']:
-        flash('Type de vote invalide', 'error')
-        return redirect(url_for('artworks.list_artworks'))
-    
-    existing_vote = Vote.query.filter_by(
-        user_id=current_user.id,
+
+    # Log de débogage
+    current_app.logger.info(f'Processing vote for artwork {artwork_id}, type: {vote_type}')
+
+    # Récupérer le vote de l'utilisateur courant
+    user_vote = Vote.query.filter_by(
+        user_id=current_user.id, 
         artwork_id=artwork_id
     ).first()
-    
-    if existing_vote:
-        if existing_vote.vote_type == vote_type:
-            # Si l'utilisateur vote dans le même sens, on supprime son vote
-            db.session.delete(existing_vote)
-            flash('Vote supprimé', 'success')
+
+    if user_vote:
+        if user_vote.vote_type == vote_type:
+            # L'utilisateur annule son vote
+            current_app.logger.info(f'User {current_user.id} cancelling vote for artwork {artwork_id}')
+            db.session.delete(user_vote)
         else:
-            # Si l'utilisateur change son vote, on met à jour le type
-            existing_vote.vote_type = vote_type
-            flash('Vote modifié', 'success')
+            # L'utilisateur change son vote
+            current_app.logger.info(f'User {current_user.id} changing vote for artwork {artwork_id}')
+            user_vote.vote_type = vote_type
     else:
-        # Si pas de vote existant, on en crée un nouveau
+        # Nouveau vote
+        current_app.logger.info(f'User {current_user.id} creating new vote for artwork {artwork_id}')
         new_vote = Vote(
             user_id=current_user.id,
             artwork_id=artwork_id,
             vote_type=vote_type
         )
         db.session.add(new_vote)
-        flash('Vote ajouté', 'success')
-    
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        flash('Erreur lors du vote', 'error')
-    
-    return redirect(url_for('artworks.list_artworks'))
+
+    db.session.commit()
+
+    # Effacer le vote temporaire de la session
+    session.pop('temp_vote', None)
+
+    # Récupérer les nouveaux compteurs de votes
+    up_votes = Vote.query.filter_by(artwork_id=artwork_id, vote_type='up').count()
+    down_votes = Vote.query.filter_by(artwork_id=artwork_id, vote_type='down').count()
+
+    current_app.logger.info(f'Vote counts for artwork {artwork_id}: up={up_votes}, down={down_votes}')
+
+    return jsonify({
+        'status': 'success',
+        'up_votes': up_votes,
+        'down_votes': down_votes
+    })
 
 @bp.route('/get_votes/<int:artwork_id>')
 @login_required
@@ -183,25 +236,21 @@ def get_votes(artwork_id):
 @login_required
 def selection(artwork_id, action):
     if not current_user.is_admin:
-        flash('Permission refusée', 'error')
-        return redirect(url_for('artworks.list_artworks'))
+        return jsonify({'success': False, 'message': 'Permission refusée'}), 403
         
     artwork = Artwork.query.get_or_404(artwork_id)
     
     if action not in ['selectionne', 'refuse', 'en_attente']:
-        flash('Action invalide', 'error')
-        return redirect(url_for('artworks.list_artworks'))
+        return jsonify({'success': False, 'message': 'Action invalide'}), 400
         
     artwork.statut = action
     
     try:
         db.session.commit()
-        flash('Statut mis à jour avec succès', 'success')
+        return jsonify({'success': True, 'message': 'Statut mis à jour avec succès'})
     except Exception as e:
         db.session.rollback()
-        flash('Erreur lors de la mise à jour du statut', 'error')
-    
-    return redirect(url_for('artworks.list_artworks'))
+        return jsonify({'success': False, 'message': 'Erreur lors de la mise à jour du statut'}), 500
 
 @bp.route('/selected')
 def selected_artworks():
@@ -277,3 +326,412 @@ def fix_image_paths():
         flash('Aucun chemin d\'image à corriger.', 'info')
     
     return redirect(url_for('artworks.list_artworks'))
+
+@bp.route('/validate_all_votes', methods=['POST'])
+@login_required
+def validate_all_votes():
+    # Vérifier si c'est une requête AJAX
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        current_app.logger.warning(f'All votes validation attempt without AJAX: {request.headers}')
+        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
+
+    # Log de débogage
+    current_app.logger.info(f'Validating all votes for user {current_user.id}')
+
+    # Récupérer toutes les œuvres
+    artworks = Artwork.query.all()
+    up_votes_count = {}
+    down_votes_count = {}
+
+    for artwork in artworks:
+        # Récupérer le vote de l'utilisateur courant pour cette œuvre
+        user_vote = Vote.query.filter_by(
+            user_id=current_user.id, 
+            artwork_id=artwork.id
+        ).first()
+
+        # Supprimer le vote existant s'il existe
+        if user_vote:
+            current_app.logger.info(f'Removing existing vote for artwork {artwork.id}')
+            db.session.delete(user_vote)
+
+        # Récupérer les votes temporaires de la session
+        temp_vote = session.get(f'temp_vote_{artwork.id}')
+        if temp_vote:
+            current_app.logger.info(f'Processing temporary vote for artwork {artwork.id}')
+            new_vote = Vote(
+                user_id=current_user.id,
+                artwork_id=artwork.id,
+                vote_type=temp_vote['vote_type']
+            )
+            db.session.add(new_vote)
+            # Supprimer le vote temporaire de la session
+            session.pop(f'temp_vote_{artwork.id}', None)
+
+        # Compter les votes
+        up_votes_count[artwork.id] = Vote.query.filter_by(artwork_id=artwork.id, vote_type='up').count()
+        
+        down_votes_count[artwork.id] = Vote.query.filter_by(artwork_id=artwork.id, vote_type='down').count()
+
+    # Valider toutes les modifications
+    db.session.commit()
+
+    current_app.logger.info('All votes validated successfully')
+
+    return jsonify({
+        'status': 'success',
+        'up_votes': up_votes_count,
+        'down_votes': down_votes_count
+    })
+
+@bp.route('/validate_votes', methods=['POST'])
+@login_required
+def validate_votes():
+    # Vérifier si c'est une requête AJAX
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        current_app.logger.warning(f'Votes validation attempt without AJAX: {request.headers}')
+        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
+
+    # Log de débogage
+    current_app.logger.info(f'Validating votes for user {current_user.id}')
+
+    # Récupérer les votes à valider
+    votes = request.form.to_dict()
+    up_votes_count = {}
+    down_votes_count = {}
+
+    for artwork_id_str, vote_type in votes.items():
+        try:
+            artwork_id = int(artwork_id_str)
+        except ValueError:
+            current_app.logger.warning(f'Invalid artwork ID: {artwork_id_str}')
+            continue
+
+        # Vérifier que l'œuvre existe
+        artwork = Artwork.query.get(artwork_id)
+        if not artwork:
+            current_app.logger.warning(f'Artwork not found: {artwork_id}')
+            continue
+
+        # Récupérer le vote existant de l'utilisateur
+        user_vote = Vote.query.filter_by(
+            user_id=current_user.id, 
+            artwork_id=artwork_id
+        ).first()
+
+        # Supprimer le vote existant s'il existe
+        if user_vote:
+            current_app.logger.info(f'Removing existing vote for artwork {artwork_id}')
+            db.session.delete(user_vote)
+
+        # Créer un nouveau vote
+        new_vote = Vote(
+            user_id=current_user.id,
+            artwork_id=artwork_id,
+            vote_type=vote_type
+        )
+        db.session.add(new_vote)
+
+        # Compter les votes
+        up_votes_count[artwork_id] = Vote.query.filter_by(artwork_id=artwork_id, vote_type='up').count()
+        
+        down_votes_count[artwork_id] = Vote.query.filter_by(artwork_id=artwork_id, vote_type='down').count()
+
+    # Valider toutes les modifications
+    db.session.commit()
+
+    current_app.logger.info('Votes validated successfully')
+
+    return jsonify({
+        'status': 'success',
+        'up_votes': up_votes_count,
+        'down_votes': down_votes_count
+    })
+
+@bp.route('/submit_vote', methods=['POST'])
+@login_required
+def submit_vote():
+    """Soumettre des votes pour plusieurs œuvres depuis le salon de vote."""
+    # Récupérer tous les votes du formulaire
+    votes = {}
+    for key, value in request.form.items():
+        if key.startswith('vote_'):
+            artwork_id = key.split('_')[1]
+            votes[artwork_id] = value
+
+    # Dictionnaires pour stocker les résultats
+    up_votes_count = {}
+    down_votes_count = {}
+
+    # Traiter chaque vote
+    for artwork_id_str, vote_value in votes.items():
+        try:
+            artwork_id = int(artwork_id_str)
+        except ValueError:
+            current_app.logger.warning(f'Invalid artwork ID: {artwork_id_str}')
+            continue
+
+        # Vérifier que l'œuvre existe
+        artwork = Artwork.query.get(artwork_id)
+        if not artwork:
+            current_app.logger.warning(f'Artwork not found: {artwork_id}')
+            continue
+
+        # Supprimer le vote existant de l'utilisateur pour cette œuvre
+        existing_vote = Vote.query.filter_by(
+            user_id=current_user.id, 
+            artwork_id=artwork_id
+        ).first()
+
+        if existing_vote:
+            current_app.logger.info(f'Removing existing vote for artwork {artwork_id}')
+            db.session.delete(existing_vote)
+
+        # Créer un nouveau vote
+        new_vote = Vote(
+            user_id=current_user.id,
+            artwork_id=artwork_id,
+            vote_type=vote_value
+        )
+        db.session.add(new_vote)
+
+        # Compter les votes pour cette œuvre
+        up_votes_count[artwork_id] = Vote.query.filter_by(artwork_id=artwork_id, vote_type='up').count()
+        
+        down_votes_count[artwork_id] = Vote.query.filter_by(artwork_id=artwork_id, vote_type='down').count()
+
+    # Valider toutes les modifications
+    db.session.commit()
+
+    current_app.logger.info('Votes validated successfully')
+
+    return jsonify({
+        'status': 'success',
+        'up_votes': up_votes_count,
+        'down_votes': down_votes_count
+    })
+
+@bp.route('/salon_de_vote', methods=['GET', 'POST'])
+@login_required
+def salon_de_vote():
+    # Vérification explicite de la requête AJAX
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
+    if request.method == 'POST':
+        try:
+            # Log détaillé des en-têtes et du formulaire
+            current_app.logger.info(f"Requête reçue - Méthode : {request.method}")
+            current_app.logger.info(f"Headers : {dict(request.headers)}")
+            current_app.logger.info(f"Arguments : {request.args}")
+            current_app.logger.info(f"Formulaire : {request.form}")
+            current_app.logger.info(f"Requête AJAX : {is_ajax}")
+
+            action = request.form.get('action')
+            current_app.logger.info(f"Action reçue : {action}")
+
+            if action == 'vote':
+                votes = {}
+                for key, value in request.form.items():
+                    if key.startswith('vote_'):
+                        artwork_id = int(key.split('_')[1])
+                        votes[artwork_id] = value
+                
+                current_app.logger.info(f"Votes reçus : {votes}")
+                
+                for artwork_id, vote_value in votes.items():
+                    current_app.logger.info(f"Mise à jour du vote pour l'œuvre {artwork_id} ")
+                    update_artwork_vote(artwork_id, vote_value, current_user)
+
+            elif action == 'selection' and current_user.is_admin:
+                selections = {}
+                for key, value in request.form.items():
+                    if key.startswith('selection_'):
+                        artwork_id = int(key.split('_')[1])
+                        selections[artwork_id] = value
+                
+                current_app.logger.info(f"Sélections reçues : {selections}")
+                
+                selected_artworks = [int(k.split('_')[1]) for k, v in request.form.items() 
+                                     if k.startswith('selection_') and v == 'selectionne']
+                refused_artworks = [int(k.split('_')[1]) for k, v in request.form.items() 
+                                    if k.startswith('selection_') and v == 'refuse']
+                
+                current_app.logger.info(f"Sélections validées : {selected_artworks}, {refused_artworks}")
+                
+                update_artwork_selections(selected_artworks, refused_artworks)
+
+            # Réponse différente selon le type de requête
+            if is_ajax:
+                return jsonify({
+                    'status': 'success', 
+                    'message': 'Votes et sélections mis à jour avec succès'
+                }), 200
+            else:
+                return redirect(url_for('artworks.salon_de_vote'))
+
+        except Exception as e:
+            current_app.logger.error(f"Erreur lors du traitement : {str(e)}")
+            if is_ajax:
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Une erreur est survenue lors du traitement'
+                }), 500
+            else:
+                flash('Une erreur est survenue', 'danger')
+                return redirect(url_for('artworks.salon_de_vote'))
+
+    return render_template('artworks/salon_de_vote.html', 
+                           artistes_data=get_artistes_data(), 
+                           user_votes=get_user_votes(current_user),
+                           user_selections=get_user_selections())
+
+@bp.route('/validate_selections', methods=['POST'])
+@login_required
+def validate_selections():
+    # Vérifier si c'est une requête AJAX
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        current_app.logger.warning(f'Selections validation attempt without AJAX: {request.headers}')
+        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
+
+    # Vérifier les permissions (seulement les administrateurs)
+    if not current_user.is_admin:
+        current_app.logger.warning(f'Non-admin user {current_user.id} attempted to validate selections')
+        return jsonify({'status': 'error', 'message': 'Permission refusée'}), 403
+
+    # Log de débogage
+    current_app.logger.info(f'Validating selections for user {current_user.id}')
+
+    # Récupérer toutes les œuvres
+    artworks = Artwork.query.all()
+    selected_artworks = []
+    refused_artworks = []
+
+    for artwork in artworks:
+        # Chercher les champs de sélection avec le bon préfixe
+        selection_status = request.form.get(f'selection_{artwork.id}')
+        
+        current_app.logger.info(f'Artwork {artwork.id} selection status: {selection_status}')
+        
+        if selection_status == 'selectionner':
+            artwork.statut = 'selectionne'
+            selected_artworks.append(artwork.id)
+        elif selection_status == 'refuser':
+            artwork.statut = 'refuse'
+            refused_artworks.append(artwork.id)
+        else:
+            artwork.statut = 'en_attente'
+
+    try:
+        db.session.commit()
+        current_app.logger.info('Selections validated successfully')
+        
+        return jsonify({
+            'status': 'success',
+            'action': 'selection',
+            'selected_artworks': selected_artworks,
+            'refused_artworks': refused_artworks
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error validating selections: {str(e)}')
+        return jsonify({
+            'status': 'error', 
+            'message': 'Erreur lors de la validation des sélections'
+        }), 500
+
+def get_artistes_data():
+    """
+    Récupère les données des artistes avec leurs œuvres.
+    
+    Returns:
+        list: Liste des groupes d'artistes avec leurs œuvres
+    """
+    artistes_data = []
+    artists = Artist.query.all()
+    
+    for artist in artists:
+        artworks = Artwork.query.filter_by(artist_id=artist.id).all()
+        artiste_groupe = {
+            'nom': artist.nom,
+            'artworks': artworks
+        }
+        artistes_data.append(artiste_groupe)
+    
+    return artistes_data
+
+def get_user_votes(current_user):
+    """
+    Récupère les votes de l'utilisateur actuel.
+    
+    Args:
+        current_user: Utilisateur connecté
+    
+    Returns:
+        dict: Dictionnaire des votes de l'utilisateur
+    """
+    user_votes = {}
+    if current_user.is_authenticated:
+        existing_votes = Vote.query.filter_by(user_id=current_user.id).all()
+        user_votes = {str(vote.artwork_id): vote.vote_type for vote in existing_votes}
+    
+    return user_votes
+
+def get_user_selections():
+    """
+    Récupère les sélections des œuvres.
+    
+    Returns:
+        dict: Dictionnaire des statuts des œuvres
+    """
+    user_selections = {str(artwork.id): artwork.statut for artwork in Artwork.query.all() 
+                       if artwork.statut in ['selectionne', 'refuse']}
+    
+    return user_selections
+
+def update_artwork_vote(artwork_id, vote_type, current_user):
+    """
+    Met à jour le vote pour une œuvre.
+    
+    Args:
+        artwork_id (int): ID de l'œuvre
+        vote_type (str): Type de vote ('up' ou 'down')
+        current_user: Utilisateur connecté
+    """
+    existing_vote = Vote.query.filter_by(
+        artwork_id=artwork_id, 
+        user_id=current_user.id
+    ).first()
+    
+    if existing_vote:
+        current_app.logger.info(f'Mise à jour du vote pour l\'œuvre {artwork_id}')
+        existing_vote.vote_type = vote_type
+    else:
+        current_app.logger.info(f'Nouveau vote pour l\'œuvre {artwork_id}')
+        new_vote = Vote(
+            artwork_id=artwork_id, 
+            user_id=current_user.id, 
+            vote_type=vote_type
+        )
+        db.session.add(new_vote)
+    
+    db.session.commit()
+
+def update_artwork_selections(selected_artworks, refused_artworks):
+    """
+    Met à jour les sélections des œuvres.
+    
+    Args:
+        selected_artworks (list): Liste des IDs des œuvres sélectionnées
+        refused_artworks (list): Liste des IDs des œuvres refusées
+    """
+    for artwork_id in selected_artworks:
+        artwork = Artwork.query.get(artwork_id)
+        if artwork:
+            artwork.statut = 'selectionne'
+    
+    for artwork_id in refused_artworks:
+        artwork = Artwork.query.get(artwork_id)
+        if artwork:
+            artwork.statut = 'refuse'
+    
+    db.session.commit()

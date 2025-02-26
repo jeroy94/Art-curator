@@ -13,8 +13,6 @@
         {% endif %}
     {% endwith %}
 
-    <h1 class="mb-4">Liste des œuvres par artiste</h1>
-
     {% for artist in artists %}
     <div class="card mb-4">
         <div class="card-header">
@@ -27,68 +25,53 @@
             {% if artist.artworks %}
             <div class="row">
                 {% for artwork in artist.artworks %}
-                <div class="col-md-4 mb-3">
+                <div class="col-md-4 mb-4">
                     <div class="card" style="width: 350px;">
                         {% if artwork.photo_path %}
                         <div style="width: 300px; height: 200px; margin: 10px auto; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
                             <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal{{ artwork.id }}">
                                 <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
-                                     style="max-width: 300px; max-height: 200px; width: auto; height: auto;"
-                                     alt="{{ artwork.titre }}">
+                                     alt="{{ artwork.titre }}" 
+                                     class="img-fluid" 
+                                     style="max-height: 200px; max-width: 300px; object-fit: contain;">
                             </a>
                         </div>
-
-                        <!-- Modal pour l'image -->
-                        <div class="modal fade" id="imageModal{{ artwork.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ artwork.id }}" aria-hidden="true">
-                            <div class="modal-dialog modal-lg">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="imageModalLabel{{ artwork.id }}">{{ artwork.titre }}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
-                                    </div>
-                                    <div class="modal-body text-center">
-                                        <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
-                                             style="max-width: 100%; height: auto;"
-                                             alt="{{ artwork.titre }}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="bg-light text-center py-5">
-                            <i class="fas fa-image fa-3x text-muted"></i>
-                            <p class="text-muted mt-2">Pas de photo</p>
-                        </div>
                         {% endif %}
+                        
                         <div class="card-body">
                             <h5 class="card-title">{{ artwork.titre }}</h5>
                             <p class="card-text">
                                 <small>N° : {{ artwork.numero }}</small><br>
                                 <small>Technique : {{ artwork.technique }}</small><br>
-                                <small>Dimensions : {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}
-                                    {% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm
-                                </small><br>
                                 <small>Prix : {{ artwork.prix }}€</small>
                             </p>
 
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <div class="btn-group">
-                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id) }}" method="POST" style="display: inline;">
-                                        <input type="hidden" name="vote_type" value="up">
-                                        <button type="submit" class="btn btn-sm {% if user_votes.get(artwork.id) == 'up' %}btn-success{% else %}btn-outline-success{% endif %}">
-                                            <i class="fas fa-thumbs-up"></i> 
-                                            <span class="vote-count-up-{{ artwork.id }}">{{ up_votes.get(artwork.id, 0) }}</span>
+                            {% if current_user.is_authenticated %}
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div class="vote-section">
+                                    <div class="btn-group" role="group">
+                                        <button 
+                                            type="button" 
+                                            class="btn btn-sm vote-btn btn-outline-success" 
+                                            data-artwork-id="{{ artwork.id }}" 
+                                            data-vote-type="up"
+                                        >
+                                            👍 Up Vote 
+                                            <span class="badge bg-light text-dark">{{ artwork.up_votes_count }}</span>
                                         </button>
-                                    </form>
-                                    <form action="{{ url_for('artworks.vote', artwork_id=artwork.id) }}" method="POST" style="display: inline;">
-                                        <input type="hidden" name="vote_type" value="down">
-                                        <button type="submit" class="btn btn-sm {% if user_votes.get(artwork.id) == 'down' %}btn-danger{% else %}btn-outline-danger{% endif %}">
-                                            <i class="fas fa-thumbs-down"></i> 
-                                            <span class="vote-count-down-{{ artwork.id }}">{{ down_votes.get(artwork.id, 0) }}</span>
+                                        <button 
+                                            type="button" 
+                                            class="btn btn-sm vote-btn btn-outline-danger" 
+                                            data-artwork-id="{{ artwork.id }}" 
+                                            data-vote-type="down"
+                                        >
+                                            👎 Down Vote 
+                                            <span class="badge bg-light text-dark">{{ artwork.down_votes_count }}</span>
                                         </button>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
+                            {% endif %}
 
                             {% if current_user.is_admin %}
                             <div class="btn-group w-100">
@@ -129,53 +112,82 @@
         </div>
     </div>
     {% endfor %}
+
+    <div class="fixed-bottom text-center mb-3">
+        <button 
+            id="validate-vote-btn" 
+            class="btn btn-primary" 
+            style="display: none;"
+        >
+            Valider mon vote
+        </button>
+    </div>
+
 </div>
+
+{% block modal %}
+{% for artist in artists %}
+    {% for artwork in artist.artworks %}
+    <!-- Modal pour l'image de l'œuvre -->
+    <div class="modal fade" id="imageModal{{ artwork.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ artwork.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalLabel{{ artwork.id }}">{{ artwork.titre }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="{{ url_for('static', filename=artwork.photo_path) }}" 
+                         alt="{{ artwork.titre }}" 
+                         class="img-fluid" 
+                         style="max-height: 70vh; max-width: 100%;">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endfor %}
+{% endblock %}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-function updateVoteCounts() {
-    // Pour chaque œuvre, récupérer le nombre de votes
-    document.querySelectorAll('[data-artwork-id]').forEach(function(element) {
-        const artworkId = element.dataset.artworkId;
-        fetch(`/artworks/get_votes/${artworkId}`)
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.vote-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            var artworkId = this.getAttribute('data-artwork-id');
+            var voteType = this.getAttribute('data-vote-type');
+
+            fetch('/artworks/submit_vote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'artwork_id=' + artworkId + '&vote_type=' + voteType
+            })
             .then(response => response.json())
             .then(data => {
-                console.log('Votes reçus:', data);
-                // Mettre à jour les compteurs
-                document.querySelector(`.vote-count-up-${artworkId}`).textContent = data.up_votes;
-                document.querySelector(`.vote-count-down-${artworkId}`).textContent = data.down_votes;
-
-                // Mettre en évidence le vote de l'utilisateur
-                const upBtn = document.querySelector(`[data-artwork-id="${artworkId}"][data-vote-type="up"]`);
-                const downBtn = document.querySelector(`[data-artwork-id="${artworkId}"][data-vote-type="down"]`);
-
-                if (data.user_vote === 'up') {
-                    upBtn.classList.remove('btn-outline-success');
-                    upBtn.classList.add('btn-success');
-                    downBtn.classList.remove('btn-danger');
-                    downBtn.classList.add('btn-outline-danger');
-                } else if (data.user_vote === 'down') {
-                    downBtn.classList.remove('btn-outline-danger');
-                    downBtn.classList.add('btn-danger');
-                    upBtn.classList.remove('btn-success');
-                    upBtn.classList.add('btn-outline-success');
-                } else {
-                    upBtn.classList.remove('btn-success');
-                    upBtn.classList.add('btn-outline-success');
-                    downBtn.classList.remove('btn-danger');
-                    downBtn.classList.add('btn-outline-danger');
+                if (data.status === 'success') {
+                    // Mettre à jour les compteurs de vote
+                    document.querySelectorAll(`.vote-btn[data-artwork-id="${artworkId}"]`).forEach(btn => {
+                        var voteTypeBtn = btn.getAttribute('data-vote-type');
+                        var countSpan = btn.querySelector('span');
+                        
+                        if (voteTypeBtn === 'up') {
+                            countSpan.textContent = data.up_votes;
+                        } else {
+                            countSpan.textContent = data.down_votes;
+                        }
+                    });
                 }
             })
             .catch(error => {
-                console.error('Erreur lors de la récupération des votes:', error);
+                console.error('Erreur:', error);
             });
+        });
     });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Mettre à jour les votes au chargement de la page
-    updateVoteCounts();
 });
 </script>
 {% endblock %}

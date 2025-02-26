@@ -111,6 +111,18 @@ class Artwork(db.Model):
     model3d_path = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     statut = db.Column(db.String(20), default='en_attente')  # en_attente, selectionne, refuse
+    
+    # Colonnes de votes avec valeur par défaut explicite
+    up_votes_count = db.Column(db.Integer, server_default='0', nullable=False)
+    down_votes_count = db.Column(db.Integer, server_default='0', nullable=False)
+
+    # Relation avec les votes
+    votes = db.relationship('Vote', backref='artwork', lazy='dynamic')
+
+    @property
+    def total_votes(self):
+        """Calcule le nombre total de votes pour cette œuvre."""
+        return Vote.query.filter_by(artwork_id=self.id).count()
 
 class Vote(db.Model):
     __tablename__ = 'votes'

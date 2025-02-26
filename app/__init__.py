@@ -4,6 +4,8 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_login import LoginManager
 from app.models.models import db, init_db, User
+import os
+import secrets
 
 def create_app():
     app = Flask(__name__)
@@ -12,11 +14,21 @@ def create_app():
     from config import Config
     app.config.from_object(Config)
     
+    # Configuration de la session
+    app.config['SECRET_KEY'] = secrets.token_hex(32)  # Générer une clé secrète sécurisée
+    app.config['SESSION_TYPE'] = 'filesystem'  # Stockage des sessions sur le système de fichiers
+    app.config['SESSION_PERMANENT'] = False  # Sessions non permanentes
+    app.config['SESSION_USE_SIGNER'] = True  # Signer les sessions
+    
     # Initialize extensions
     init_db(app)
     Migrate(app, db)
     CORS(app)
     JWTManager(app)
+    
+    # Initialiser la session
+    from flask_session import Session
+    Session(app)
     
     # Initialize Flask-Login
     login_manager = LoginManager()
@@ -28,7 +40,6 @@ def create_app():
         return User.query.get(int(user_id))
     
     # Create upload folder if it doesn't exist
-    import os
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     

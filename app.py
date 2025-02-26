@@ -3,8 +3,10 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_login import LoginManager
 from flask_mail import Mail
+from flask_session import Session
 from app.models.models import db, User
 import os
+import secrets
 
 def create_app():
     app = Flask(__name__, 
@@ -13,6 +15,14 @@ def create_app():
     
     # Configuration
     app.config.from_object('config.Config')
+    
+    # Configuration de la session
+    app.config['SECRET_KEY'] = secrets.token_hex(32)
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = os.path.join(os.path.dirname(__file__), 'flask_session')
+    
+    # Créer le dossier pour les sessions si nécessaire
+    os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
     
     # Ensure the upload folders exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -24,6 +34,7 @@ def create_app():
     db.init_app(app)
     jwt = JWTManager(app)
     mail = Mail(app)
+    Session(app)  # Initialiser la session Flask
     
     # Configure Flask-Login
     login_manager = LoginManager()

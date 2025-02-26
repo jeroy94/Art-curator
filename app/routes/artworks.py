@@ -748,13 +748,30 @@ def export_selected_artworks_pdf():
         styles = getSampleStyleSheet()
         
         # Style personnalisé pour les titres et le contenu
-        title_style = styles['Heading1']
+        title_style = ParagraphStyle(
+            'TitleStyle', 
+            parent=styles['Heading1'], 
+            textColor=colors.black
+        )
         artist_style = ParagraphStyle(
             'ArtistStyle', 
             parent=styles['Heading2'], 
-            textColor=colors.navy
+            textColor=colors.black,
+            leftIndent=-20*mm  # Décalage de 20mm vers la droite
         )
-        normal_style = styles['Normal']
+        normal_style = ParagraphStyle(
+            'NormalBlack', 
+            parent=styles['Normal'], 
+            textColor=colors.black
+        )
+        
+        # Style pour le prix (également en noir)
+        price_style = ParagraphStyle(
+            'PriceStyle', 
+            parent=normal_style, 
+            alignment=2,  # Alignement à droite
+            textColor=colors.black
+        )
         
         # Contenu du PDF
         story = []
@@ -766,7 +783,10 @@ def export_selected_artworks_pdf():
         for artist in artists:
             # Nom de l'artiste
             artist_name = artist.nom_artiste or f"{artist.prenom} {artist.nom}"
-            story.append(Paragraph(f"<b>{artist_name}</b>", artist_style))
+            if artist.nom_artiste:
+                artist_name += f" ({artist.nom_artiste})"
+            artist_paragraph = Paragraph(artist_name, artist_style)
+            story.append(artist_paragraph)
             story.append(Spacer(1, 6))
             
             for artwork in artist.artworks:
@@ -833,12 +853,7 @@ def export_selected_artworks_pdf():
                         """, normal_style), 
                         Paragraph(f"""
                             <b>Prix :</b> {artwork.prix} € {"" if artwork.prix else "Non défini"}
-                        """, ParagraphStyle(
-                            'PriceStyle', 
-                            parent=normal_style, 
-                            alignment=2,  # Alignement à droite
-                            textColor=colors.darkblue
-                        ))]
+                        """, price_style)]
                     ]
                     
                     # Largeur totale de la page A4
@@ -846,7 +861,7 @@ def export_selected_artworks_pdf():
                     
                     table = Table(table_data, 
                         colWidths=[30*mm, 130*mm, 40*mm],  # Image, détails, prix
-                        rowHeights=[70]  # Augmentation de la hauteur
+                        rowHeights=[60]  # Hauteur à 60mm
                     )
                     table.setStyle(TableStyle([
                         ('ALIGN', (0,0), (0,0), 'LEFT'),     # Image alignée à gauche
@@ -910,7 +925,14 @@ def export_selected_pdf():
             artist_name = f"{artist.nom} {artist.prenom}"
             if artist.nom_artiste:
                 artist_name += f" ({artist.nom_artiste})"
-            elements.append(Paragraph(artist_name, styles['Heading2']))
+            artist_style = ParagraphStyle(
+                'ArtistStyle', 
+                parent=styles['Heading2'], 
+                textColor=colors.black,
+                leftIndent=20*mm  # Décalage de 20mm vers la droite
+            )
+            artist_paragraph = Paragraph(artist_name, artist_style)
+            elements.append(artist_paragraph)
             
             # Tableau pour chaque artiste
             for artwork in selected_artworks:

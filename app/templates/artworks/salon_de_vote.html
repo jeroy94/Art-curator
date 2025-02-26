@@ -7,8 +7,12 @@
     <form method="POST" id="vote-form" action="{{ url_for('artworks.salon_de_vote') }}">
         {% for artiste_groupe in artistes_data %}
         <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h3>{{ artiste_groupe.nom }}</h3>
+            <div class="card-header" style="background-color: #f8f9fa; color: #000;">
+                {% if artiste_groupe.nom_artiste %}
+                    <h3>{{ artiste_groupe.nom_artiste }}</h3>
+                {% else %}
+                    <h3>{{ artiste_groupe.prenom }} {{ artiste_groupe.nom }}</h3>
+                {% endif %}
             </div>
             <div class="card-body">
                 <div class="row">
@@ -32,7 +36,19 @@
                                 <h5 class="card-title">{{ artwork.titre }}</h5>
                                 <p class="card-text">
                                     <strong>Technique :</strong> {{ artwork.technique }}<br>
-                                    <strong>Année :</strong> {{ artwork.annee_creation }}
+                                    <strong>Dimensions de l'œuvre :</strong> 
+                                    {% if artwork.dimension_largeur or artwork.dimension_hauteur or artwork.dimension_profondeur %}
+                                        {{ artwork.dimension_largeur or 0 }}x{{ artwork.dimension_hauteur or 0 }}x{{ artwork.dimension_profondeur or 0 }} cm
+                                    {% else %}
+                                        Dimensions non renseignées
+                                    {% endif %}
+                                    <br>
+                                    <strong>Dimensions du cadre :</strong> 
+                                    {% if artwork.cadre_largeur or artwork.cadre_hauteur or artwork.cadre_profondeur %}
+                                        {{ artwork.cadre_largeur or 0 }}x{{ artwork.cadre_hauteur or 0 }}x{{ artwork.cadre_profondeur or 0 }} cm
+                                    {% else %}
+                                        Dimensions du cadre non renseignées
+                                    {% endif %}
                                 </p>
                                 
                                 <div class="vote-section">

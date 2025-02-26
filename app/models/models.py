@@ -89,6 +89,51 @@ class Artist(db.Model):
     # Relation avec les œuvres
     artworks = db.relationship('Artwork', backref='artist', lazy=True)
 
+    @classmethod
+    def normalize_name(cls, name):
+        """
+        Normalise un nom ou un prénom en mettant la première lettre en majuscule 
+        et le reste en minuscules.
+        
+        Args:
+            name (str): Le nom ou prénom à normaliser
+        
+        Returns:
+            str: Le nom normalisé
+        """
+        if not name:
+            return name
+        
+        # Séparer les parties du nom (pour gérer les noms composés)
+        parts = name.split('-')
+        normalized_parts = []
+        
+        for part in parts:
+            # Mettre la première lettre en majuscule et le reste en minuscules
+            normalized_part = part.strip().capitalize()
+            normalized_parts.append(normalized_part)
+        
+        # Rejoindre les parties avec un trait d'union
+        return '-'.join(normalized_parts)
+
+    def save(self, *args, **kwargs):
+        """
+        Surcharge de la méthode save pour normaliser les noms avant l'enregistrement
+        """
+        # Normaliser les noms et prénoms
+        self.nom = self.normalize_name(self.nom)
+        self.prenom = self.normalize_name(self.prenom)
+        
+        # Normaliser les noms d'artiste si présents
+        if self.nom_artiste:
+            self.nom_artiste = self.normalize_name(self.nom_artiste)
+        if self.prenom_artiste:
+            self.prenom_artiste = self.normalize_name(self.prenom_artiste)
+        
+        # Appeler la méthode save originale
+        db.session.add(self)
+        db.session.commit()
+
 class Artwork(db.Model):
     __tablename__ = 'artworks'
     

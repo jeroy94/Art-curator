@@ -53,6 +53,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    qr_code_link = db.Column(db.String(200), default='', nullable=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -101,6 +102,7 @@ class Artist(db.Model):
     edition_site = db.Column(db.Boolean, default=False, nullable=True)
     edition_facebook = db.Column(db.Boolean, default=False, nullable=True)
     nom_catalogue = db.Column(db.String(200), default='', nullable=True)
+    qr_code_link = db.Column(db.String(200), default='', nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relation avec les œuvres
@@ -172,6 +174,7 @@ class Artwork(db.Model):
     photo_path = db.Column(db.String(200))
     model3d_path = db.Column(db.String(200))
     cube_3d_path = db.Column(db.String(500), nullable=True, default=None, comment='Chemin vers le cube 3D généré pour cette œuvre')
+    qr_code_link = db.Column(db.String(200), default='', nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     statut = db.Column(db.String(20), default='en_attente')  # en_attente, selectionne, refuse
     

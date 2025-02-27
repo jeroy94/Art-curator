@@ -15,6 +15,9 @@ from PIL import Image as PILImage
 from reportlab.pdfgen import canvas
 import logging
 from app.utils.cube_3d_generator import batch_create_3d_cubes, create_artwork_cube
+import qrcode
+import io
+import base64
 
 bp = Blueprint('artworks', __name__, url_prefix='/artworks')
 
@@ -1087,6 +1090,7 @@ def generate_artwork_3d_cube(artwork_id):
 @login_required
 def edit_cartel(artwork_id):
     artwork = Artwork.query.get_or_404(artwork_id)
+    artist = artwork.artist  # Récupérer l'artiste associé
     
     if request.method == 'POST':
         # Récupérer les données du formulaire
@@ -1095,6 +1099,9 @@ def edit_cartel(artwork_id):
         artwork.dimension_largeur = request.form.get('dimension_largeur', artwork.dimension_largeur)
         artwork.dimension_hauteur = request.form.get('dimension_hauteur', artwork.dimension_hauteur)
         artwork.dimension_profondeur = request.form.get('dimension_profondeur', artwork.dimension_profondeur)
+        
+        # Nouveau champ pour le lien du QR code de l'artiste
+        artist.qr_code_link = request.form.get('qr_code_link', artist.site_internet)
         
         try:
             db.session.commit()
@@ -1130,4 +1137,31 @@ def print_all_cartels():
             if artwork.statut == 'selectionne':
                 logging.info(f"  - Œuvre sélectionnée : {artwork.titre}")
     
-    return render_template('artworks/print_cartels.html', artists=artists_with_selected_artworks)
+    # Générer des QR codes pour chaque artiste
+    artists_with_qr = []
+    for artist in artists:
+        # Priorité au lien personnalisé, sinon site internet, sinon lien par défaut
+        website = (
+            artist.qr_code_link or 
+            artist.site_internet or 
+            f"https://artcartel.com/artist/{artist.id}"
+        )
+        
+        # Générer le QR code
+        qr = qrcode.QRCode(version=1, box_size=3, border=2)
+        qr.add_data(website)
+        qr.make(fit=True)
+        
+        # Créer l'image du QR code
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convertir l'image en base64 pour l'intégrer dans le HTML
+        buffered = io.BytesIO()
+        qr_img.save(buffered, format="PNG")
+        qr_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        
+        # Ajouter le QR code à l'artiste
+        artist.qr_code = f"data:image/png;base64,{qr_base64}"
+        artists_with_qr.append(artist)
+    
+    return render_template('artworks/print_cartels.html', artists=artists_with_qr)

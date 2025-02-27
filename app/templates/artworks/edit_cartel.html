@@ -32,6 +32,15 @@
                                 <input type="number" class="form-control" id="dimension_profondeur" name="dimension_profondeur" value="{{ artwork.dimension_profondeur }}">
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label for="qr_code_link" class="form-label">Lien pour le QR Code</label>
+                            <input type="url" class="form-control" id="qr_code_link" name="qr_code_link" 
+                                   value="{{ artwork.artist.qr_code_link or artwork.artist.site_internet or '' }}" 
+                                   placeholder="Entrez l'URL pour le QR Code (optionnel)">
+                            <small class="form-text text-muted">
+                                Si vide, utilisera le site internet de l'artiste ou un lien par défaut
+                            </small>
+                        </div>
                         <div class="text-center">
                             <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
                             <a href="{{ url_for('artworks.selected_artworks') }}" class="btn btn-secondary ms-2">Annuler</a>

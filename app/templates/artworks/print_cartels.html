@@ -39,23 +39,35 @@
                     margin: 5mm; 
                     padding: 5mm; 
                     display: flex;
-                    flex-direction: column;
-                    justify-content: center;
+                    flex-direction: row;
+                    align-items: center;
+                    justify-content: space-between;
                     text-align: center;
                     font-family: Arial, sans-serif;
                     box-sizing: border-box;
                 ">
-                    <h3 style="margin: 0; font-size: 12pt;">{{ artist.nom }} {{ artist.prenom }}</h3>
-                    <p style="margin: 2mm 0; font-size: 10pt; font-style: italic;">{{ artwork.titre }}</p>
-                    <div style="font-size: 8pt;">
-                        <p style="margin: 0;">{{ artwork.technique or 'Technique non spécifiée' }}</p>
-                        <p style="margin: 0;">
-                            {% if artwork.dimension_largeur and artwork.dimension_hauteur %}
-                                {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm
-                            {% else %}
-                                Dimensions non spécifiées
-                            {% endif %}
-                        </p>
+                    <div style="flex: 3; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="margin: 0; font-size: 12pt;">{{ artist.nom }} {{ artist.prenom }}</h3>
+                        <p style="margin: 2mm 0; font-size: 10pt; font-style: italic;">{{ artwork.titre }}</p>
+                        <div style="font-size: 8pt;">
+                            <p style="margin: 0;">{{ artwork.technique or 'Technique non spécifiée' }}</p>
+                            <p style="margin: 0;">
+                                {% if artwork.dimension_largeur and artwork.dimension_hauteur %}
+                                    {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm
+                                {% else %}
+                                    Dimensions non spécifiées
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
+                        {% if artist.qr_code %}
+                        <img src="{{ artist.qr_code }}" alt="QR Code" style="
+                            width: 25mm; 
+                            height: 25mm; 
+                            margin: 2mm;
+                        ">
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}

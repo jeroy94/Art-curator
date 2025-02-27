@@ -1,10 +1,52 @@
 {% extends "base.html" %}
 
+{% block head %}
+{{ super() }}
+<!-- Toastr CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+<style>
+    /* Style personnalisé pour Toastr */
+    #toast-container {
+        z-index: 9999 !important;
+        font-family: 'Arial', sans-serif;
+    }
+    #toast-container > .toast {
+        opacity: 0.9;
+        background-image: none !important;
+        padding: 15px 15px 15px 50px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    }
+    #toast-container > .toast-success {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+    #toast-container > .toast-error {
+        background-color: #dc3545 !important;
+        color: white !important;
+    }
+    #toast-container > .toast::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 24px;
+    }
+    #toast-container > .toast-success::before {
+        content: '✅';
+    }
+    #toast-container > .toast-error::before {
+        content: '❌';
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">Salon de Vote</h1>
     
-    <form method="POST" id="vote-form" action="{{ url_for('artworks.salon_de_vote') }}">
+    <form id="vote-form" method="POST" action="{{ url_for('artworks.salon_de_vote') }}" class="mt-4">
         {% for artiste_groupe in artistes_data %}
         <div class="card mb-4">
             <div class="card-header" style="background-color: #f8f9fa; color: #000;">
@@ -145,41 +187,96 @@ document.addEventListener('DOMContentLoaded', function() {
     const validateVotesBtn = document.getElementById('validate-votes');
     const validateSelectionBtn = document.getElementById('validate-selection');
 
+    function createNotification(message, type = 'info') {
+        // Créer un élément de notification
+        const notification = document.createElement('div');
+        notification.style.position = 'fixed';
+        notification.style.bottom = '20px';
+        notification.style.right = '20px';
+        notification.style.backgroundColor = type === 'success' ? '#28a745' : '#dc3545';
+        notification.style.color = 'white';
+        notification.style.padding = '15px';
+        notification.style.borderRadius = '5px';
+        notification.style.zIndex = '9999';
+        notification.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+        notification.style.transition = 'opacity 0.3s ease-in-out';
+        notification.textContent = message;
+
+        // Ajouter au body
+        document.body.appendChild(notification);
+
+        // Faire disparaître après 3 secondes
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 300);
+        }, 3000);
+    }
+
     function sendAjaxRequest(action) {
-        const formData = new FormData(form);
+        const formData = new URLSearchParams();
+        
+        // Collecter les votes et sélections
+        const votes = {};
+        const selections = {};
+        
+        Array.from(form.elements).forEach(element => {
+            if ((element.type === 'radio' || element.type === 'checkbox') && element.checked) {
+                if (element.name.startsWith('vote_')) {
+                    const artworkId = element.name.split('_')[1];
+                    votes[artworkId] = element.value;
+                }
+                if (element.name.startsWith('selection_')) {
+                    const artworkId = element.name.split('_')[1];
+                    selections[artworkId] = element.value;
+                }
+                
+                formData.append(element.name, element.value);
+            }
+            else if (element.type !== 'radio' && element.type !== 'checkbox' && element.name) {
+                formData.append(element.name, element.value);
+            }
+        });
+
+        formData.delete('action');
         formData.append('action', action);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', form.action, true);
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.setRequestHeader('Accept', 'application/json');
-
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    console.log('Réponse du serveur :', response);
-                    
-                    // Afficher un message de succès
-                    alert(response.message || 'Opération réussie');
-                } catch (e) {
-                    console.error('Erreur de parsing JSON', e);
-                    alert('Une erreur est survenue lors du traitement de la réponse');
-                }
-            } else {
-                console.error('Erreur de requête', xhr.status, xhr.statusText);
-                alert('Une erreur est survenue');
+        fetch("{{ url_for('artworks.salon_de_vote') }}", {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erreur lors de la requête: ${response.status} ${response.statusText}`);
             }
-        };
-
-        xhr.onerror = function() {
-            console.error('Erreur réseau');
-            alert('Erreur de connexion');
-        };
-
-        const params = new URLSearchParams(formData).toString();
-        xhr.send(params);
+            return response.json();
+        })
+        .then(data => {
+            // Construire un message détaillé
+            let message = '';
+            if (action === 'vote') {
+                const voteDetails = Object.entries(votes)
+                    .map(([id, vote]) => `Œuvre ${id}: ${vote === 'up' ? '👍' : '👎'}`)
+                    .join(', ');
+                message = `Votes enregistrés : ${voteDetails}`;
+                createNotification(message, 'success');
+            } else if (action === 'selection') {
+                const selectionDetails = Object.entries(selections)
+                    .map(([id, status]) => `Œuvre ${id}: ${status === 'selectionne' ? '✅' : '❌'}`)
+                    .join(', ');
+                message = `Sélections validées : ${selectionDetails}`;
+                createNotification(message, 'success');
+            }
+        })
+        .catch(error => {
+            createNotification('Une erreur est survenue lors de l\'enregistrement', 'error');
+        });
     }
 
     validateVotesBtn.addEventListener('click', function(e) {

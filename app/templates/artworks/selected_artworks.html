@@ -7,8 +7,11 @@
             <h1>Œuvres Sélectionnées</h1>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('artworks.export_selected_artworks_pdf') }}" class="btn btn-primary">
+            <a href="{{ url_for('artworks.export_selected_artworks_pdf') }}" class="btn btn-primary me-2">
                 <i class="fas fa-file-pdf me-2"></i>Exporter en PDF
+            </a>
+            <a href="{{ url_for('artworks.print_all_cartels') }}" class="btn btn-secondary" target="_blank">
+                <i class="fas fa-print me-2"></i>Imprimer Cartels
             </a>
         </div>
     </div>
@@ -45,9 +48,12 @@
                                     {{ artwork.dimension_largeur|int }}x{{ artwork.dimension_hauteur|int }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur|int }}{% endif %} cm
                                 </p>
                             </div>
-                            <div class="card-footer text-center">
+                            <div class="card-footer text-center d-flex justify-content-between">
                                 <button class="btn btn-primary generate-3d-cube" data-artwork-id="{{ artwork.id }}">
                                     <i class="fas fa-cube me-2"></i>Générer Cube 3D
+                                </button>
+                                <button class="btn btn-secondary edit-cartel" data-artwork-id="{{ artwork.id }}">
+                                    <i class="fas fa-edit me-2"></i>Éditer Cartel
                                 </button>
                             </div>
                         </div>
@@ -64,17 +70,22 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.error('🚨 SCRIPT CHARGÉ');
-    
-    const buttons = document.querySelectorAll('.generate-3d-cube');
-    console.error(`🔢 Boutons trouvés : ${buttons.length}`);
-    
-    buttons.forEach(button => {
-        button.addEventListener('click', function(event) {
+    // Délégation d'événements pour gérer dynamiquement les boutons
+    document.addEventListener('click', function(event) {
+        // Gestion du cube 3D
+        const generateCubeButton = event.target.closest('.generate-3d-cube');
+        if (generateCubeButton) {
             event.preventDefault();
             
-            const artworkId = this.getAttribute('data-artwork-id');
-            console.error(`🎯 Bouton cliqué - Artwork ID: ${artworkId}`);
+            const artworkId = generateCubeButton.getAttribute('data-artwork-id');
+            
+            if (!artworkId) {
+                console.error('ID de l\'œuvre non trouvé');
+                alert('Impossible de générer le cube : ID manquant');
+                return;
+            }
+            
+            console.log(`Tentative de génération de cube 3D pour l'œuvre ${artworkId}`);
             
             fetch(`/artworks/artwork/${artworkId}/generate_3d_cube`, {
                 method: 'POST',
@@ -82,18 +93,51 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ artwork_id: artworkId })
+                body: JSON.stringify({ 
+                    artwork_id: parseInt(artworkId, 10),
+                    debug_info: {
+                        userAgent: navigator.userAgent,
+                        timestamp: new Date().toISOString()
+                    }
+                })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Réponse du serveur :', response);
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.message || 'Erreur lors de la génération du cube');
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
-                console.error('📦 Réponse serveur :', data);
-                alert(data.message || 'Cube 3D généré');
+                console.log('Données de réponse :', data);
+                if (data.success) {
+                    alert(`Cube 3D généré : ${data.cube_3d_path}`);
+                } else {
+                    alert(data.message || 'Génération du cube 3D terminée');
+                }
             })
             .catch(error => {
-                console.error('❌ Erreur :', error);
-                alert('Erreur lors de la génération');
+                console.error('Erreur complète :', error);
+                alert(`Erreur : ${error.message}`);
             });
-        });
+        }
+        
+        // Gestion de l'édition du cartel
+        const editCartelButton = event.target.closest('.edit-cartel');
+        if (editCartelButton) {
+            event.preventDefault();
+            
+            const artworkId = editCartelButton.getAttribute('data-artwork-id');
+            
+            if (!artworkId) {
+                console.error('ID de l\'œuvre non trouvé');
+                return;
+            }
+            
+            window.location.href = `/artworks/artwork/${artworkId}/edit_cartel`;
+        }
     });
 });
 </script>

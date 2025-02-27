@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Édition du Cartel</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="titre" class="form-label">Titre</label>
+                            <input type="text" class="form-control" id="titre" name="titre" value="{{ artwork.titre }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="technique" class="form-label">Technique</label>
+                            <input type="text" class="form-control" id="technique" name="technique" value="{{ artwork.technique }}" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="dimension_largeur" class="form-label">Largeur (cm)</label>
+                                <input type="number" class="form-control" id="dimension_largeur" name="dimension_largeur" value="{{ artwork.dimension_largeur }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="dimension_hauteur" class="form-label">Hauteur (cm)</label>
+                                <input type="number" class="form-control" id="dimension_hauteur" name="dimension_hauteur" value="{{ artwork.dimension_hauteur }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="dimension_profondeur" class="form-label">Profondeur (cm)</label>
+                                <input type="number" class="form-control" id="dimension_profondeur" name="dimension_profondeur" value="{{ artwork.dimension_profondeur }}">
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+                            <a href="{{ url_for('artworks.selected_artworks') }}" class="btn btn-secondary ms-2">Annuler</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

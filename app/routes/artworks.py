@@ -497,8 +497,11 @@ def salon_de_vote():
             current_app.logger.info(f"Formulaire : {request.form}")
             current_app.logger.info(f"Requête AJAX : {is_ajax}")
 
-            action = request.form.get('action')
-            current_app.logger.info(f"Action reçue : {action}")
+            # Récupérer la dernière action (priorité à la dernière action)
+            actions = request.form.getlist('action')
+            action = actions[-1] if actions else None
+            current_app.logger.info(f"Action(s) reçue(s) : {actions}")
+            current_app.logger.info(f"Action finale : {action}")
 
             if action == 'vote':
                 votes = {}
@@ -535,7 +538,7 @@ def salon_de_vote():
             if is_ajax:
                 return jsonify({
                     'status': 'success', 
-                    'message': 'Votes et sélections mis à jour avec succès'
+                    'message': f'Action {action} traitée avec succès'
                 }), 200
             else:
                 return redirect(url_for('artworks.salon_de_vote'))
@@ -986,10 +989,11 @@ def generate_artwork_3d_cube(artwork_id):
         logger.debug("Content-Type: %s", request.content_type)
         logger.debug("Donnees JSON recues : %s", data)
 
-        # Vérifier que l'artwork_id correspond
-        if str(artwork_id) != data.get('artwork_id'):
-            logger.warning("ID de l'artwork incorrect")
-            return jsonify({"error": "ID de l'artwork incorrect"}), 400
+        # Vérifier que l'artwork_id correspond de manière plus flexible
+        json_artwork_id = data.get('artwork_id')
+        if json_artwork_id is not None and int(json_artwork_id) != artwork_id:
+            logger.warning(f"ID de l'artwork incorrect. Route: {artwork_id}, JSON: {json_artwork_id}")
+            return jsonify({"error": f"ID de l'artwork incorrect. Attendu : {artwork_id}, Reçu : {json_artwork_id}"}), 400
 
         # Récupérer l'artwork
         artwork = Artwork.query.get_or_404(artwork_id)
@@ -1017,13 +1021,46 @@ def generate_artwork_3d_cube(artwork_id):
         output_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], '3d_cubes')
         os.makedirs(output_dir, exist_ok=True)
         
-        # Générer le cube 3D
+        # Nettoyer le nom de l'artiste et du titre pour le nom de fichier
+        def clean_filename(text):
+            # Supprimer les caractères spéciaux et remplacer les espaces
+            import re
+            return re.sub(r'[^\w\-_\.]', '_', text).replace(' ', '_')
+        
+        # Déterminer le nom de l'artiste
+        artist_name = 'Inconnu'
+        try:
+            # Récupérer l'artiste associé à l'œuvre
+            artist = Artist.query.get(artwork.artist_id)
+            
+            # Priorités pour le nom de l'artiste
+            if artist:
+                # Priorité 1 : Nom artiste (nom d'artiste)
+                if artist.nom_artiste:
+                    artist_name = clean_filename(artist.nom_artiste)
+                # Priorité 2 : Nom + Prénom
+                elif artist.nom and artist.prenom:
+                    artist_name = clean_filename(f"{artist.nom}_{artist.prenom}")
+                # Priorité 3 : Nom seul
+                elif artist.nom:
+                    artist_name = clean_filename(artist.nom)
+                # Priorité 4 : ID de l'artiste
+                else:
+                    artist_name = f"Artiste_{artist.id}"
+        except Exception as e:
+            logging.warning(f"Erreur lors de la récupération du nom de l'artiste : {e}")
+        
+        # Nettoyer le titre, avec une alternative
+        artwork_title = clean_filename(artwork.titre or f"Oeuvre_{artwork.id}")
+        
+        # Passer le nom personnalisé à la fonction de création de cube
         cube_result = create_artwork_cube(
             image_path, 
             artwork_width_cm=artwork.dimension_largeur or 10,  # Valeur par défaut si None
             artwork_height_cm=artwork.dimension_hauteur or 10, 
             depth_cm=3,  # Profondeur fixée à 3 cm
-            output_dir=output_dir
+            output_dir=output_dir,
+            custom_filename=f"{artist_name}_{artwork_title}"
         )
         logger.debug("Cube 3D genere : %s", cube_result)
         
@@ -1045,3 +1082,40 @@ def generate_artwork_3d_cube(artwork_id):
             'success': False,
             'message': 'Erreur lors de la generation du cube 3D : %s' % str(e)
         }), 500
+
+@bp.route('/artwork/<int:artwork_id>/edit_cartel', methods=['GET', 'POST'])
+@login_required
+def edit_cartel(artwork_id):
+    artwork = Artwork.query.get_or_404(artwork_id)
+    
+    if request.method == 'POST':
+        # Récupérer les données du formulaire
+        artwork.titre = request.form.get('titre', artwork.titre)
+        artwork.technique = request.form.get('technique', artwork.technique)
+        artwork.dimension_largeur = request.form.get('dimension_largeur', artwork.dimension_largeur)
+        artwork.dimension_hauteur = request.form.get('dimension_hauteur', artwork.dimension_hauteur)
+        artwork.dimension_profondeur = request.form.get('dimension_profondeur', artwork.dimension_profondeur)
+        
+        try:
+            db.session.commit()
+            flash('Cartel mis à jour avec succès', 'success')
+            return redirect(url_for('artworks.selected_artworks'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erreur lors de la mise à jour : {str(e)}', 'danger')
+    
+    return render_template('artworks/edit_cartel.html', artwork=artwork)
+
+@bp.route('/print_all_cartels')
+@login_required
+def print_all_cartels():
+    # Récupérer tous les artistes avec leurs œuvres sélectionnées
+    artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').distinct().all()
+    
+    # Filtrer les artistes pour ne garder que ceux avec des œuvres sélectionnées
+    artists_with_selected_artworks = [
+        artist for artist in artists 
+        if any(artwork.statut == 'selectionne' for artwork in artist.artworks)
+    ]
+    
+    return render_template('artworks/print_cartels.html', artists=artists_with_selected_artworks)

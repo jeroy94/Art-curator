@@ -120,7 +120,7 @@ def create_textured_cube(image_path, depth_cm=3, output_dir=None):
         logging.error(f"Erreur lors de la création du cube 3D: {e}")
         raise
 
-def create_artwork_cube(image_path, artwork_width_cm=None, artwork_height_cm=None, depth_cm=3, output_dir=None):
+def create_artwork_cube(image_path, artwork_width_cm=None, artwork_height_cm=None, depth_cm=3, output_dir=None, custom_filename=None):
     """
     Crée un cube 3D pour une œuvre avec ses dimensions réelles.
     
@@ -130,6 +130,7 @@ def create_artwork_cube(image_path, artwork_width_cm=None, artwork_height_cm=Non
         artwork_height_cm (float, optional): Hauteur réelle de l'œuvre en cm
         depth_cm (float, optional): Profondeur du cube. Défaut à 3 cm.
         output_dir (str, optional): Répertoire de sortie. Si None, utilise le même répertoire que l'image.
+        custom_filename (str, optional): Nom de fichier personnalisé pour le cube 3D
     
     Returns:
         dict: Informations sur le cube 3D créé
@@ -225,8 +226,11 @@ def create_artwork_cube(image_path, artwork_width_cm=None, artwork_height_cm=Non
         os.makedirs(output_dir, exist_ok=True)
         
         # Générer le nom de fichier de sortie
-        base_name = os.path.splitext(os.path.basename(image_path))[0]
-        output_obj = os.path.join(output_dir, f"{base_name}_cube.obj")
+        if custom_filename:
+            output_obj = os.path.join(output_dir, f"{custom_filename}_cube.obj")
+        else:
+            base_name = os.path.splitext(os.path.basename(image_path))[0]
+            output_obj = os.path.join(output_dir, f"{base_name}_cube.obj")
         
         # Sauvegarder le mesh
         mesh.export(output_obj)

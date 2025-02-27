@@ -27,6 +27,23 @@ def reset_database(app):
         
         create_admin_user(app)
 
+def reset_database_full(app):
+    """
+    Réinitialise complètement la base de données.
+    Supprime toutes les tables et les recrée.
+    """
+    with app.app_context():
+        # Supprimer toutes les tables
+        db.drop_all()
+        
+        # Recréer toutes les tables
+        db.create_all()
+        
+        logger.info("Base de données réinitialisée complètement")
+        
+        # Recréer l'utilisateur admin si nécessaire
+        create_admin_user(app)
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
@@ -154,6 +171,7 @@ class Artwork(db.Model):
     prix = db.Column(db.Float)
     photo_path = db.Column(db.String(200))
     model3d_path = db.Column(db.String(200))
+    cube_3d_path = db.Column(db.String(500), nullable=True, default=None, comment='Chemin vers le cube 3D généré pour cette œuvre')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     statut = db.Column(db.String(20), default='en_attente')  # en_attente, selectionne, refuse
     

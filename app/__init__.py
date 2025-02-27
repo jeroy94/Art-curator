@@ -43,19 +43,35 @@ def create_app():
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     
-    # Configurer la journalisation
+    # Configuration du logger pour la compatibilité Windows
+    import sys
     import logging
-    from logging.handlers import RotatingFileHandler
-    
-    file_handler = RotatingFileHandler(app.config['LOG_FILE'], maxBytes=10240, backupCount=10)
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    ))
-    file_handler.setLevel(app.config['LOG_LEVEL'])
-    app.logger.addHandler(file_handler)
-    
-    app.logger.setLevel(app.config['LOG_LEVEL'])
-    app.logger.info('Application démarrée')
+    import io
+
+    # Créer un gestionnaire de flux qui gère l'encodage UTF-8
+    class UTF8StreamHandler(logging.StreamHandler):
+        def __init__(self, stream=None):
+            if stream is None:
+                stream = sys.stdout
+            super().__init__(stream)
+
+        def format(self, record):
+            # Convertir les emojis et caractères spéciaux en leur représentation textuelle
+            msg = super().format(record)
+            return msg.encode('ascii', 'ignore').decode('ascii')
+
+    # Configuration du logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            UTF8StreamHandler(),  # Gestionnaire de flux personnalisé
+            logging.FileHandler('app.log', encoding='utf-8')  # Fichier log en UTF-8
+        ]
+    )
+
+    # Rediriger stdout vers un flux qui gère l'encodage
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     
     # Register blueprints
     from app.routes import auth, artists, admin, artworks, test

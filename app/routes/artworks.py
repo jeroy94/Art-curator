@@ -13,6 +13,8 @@ from flask import send_file
 import io
 from PIL import Image as PILImage
 from reportlab.pdfgen import canvas
+import logging
+from app.utils.cube_3d_generator import batch_create_3d_cubes, create_artwork_cube
 
 bp = Blueprint('artworks', __name__, url_prefix='/artworks')
 
@@ -920,3 +922,126 @@ def export_selected_artworks_pdf():
         current_app.logger.error(f"Erreur lors de la génération du PDF: {e}")
         flash("Une erreur est survenue lors de la génération du PDF.", "error")
         return redirect(url_for('main.index'))
+
+@bp.route('/generate_3d_cubes', methods=['GET'])
+@login_required
+def generate_3d_cubes():
+    """
+    Génère des cubes 3D pour toutes les œuvres sélectionnées.
+    
+    Returns:
+        JSON avec les informations des cubes 3D générés
+    """
+    try:
+        # Récupérer les œuvres sélectionnées
+        selected_artworks = Artwork.query.filter_by(statut='selectionne').all()
+        
+        # Vérifier s'il y a des œuvres sélectionnées
+        if not selected_artworks:
+            return jsonify({
+                'status': 'error',
+                'message': 'Aucune œuvre sélectionnée'
+            }), 400
+        
+        # Extraire les chemins des images
+        image_paths = [artwork.photo_path for artwork in selected_artworks if artwork.photo_path]
+        
+        # Créer un répertoire pour les cubes 3D
+        output_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], '3d_cubes')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Générer les cubes 3D
+        cube_results = batch_create_3d_cubes(
+            image_paths, 
+            depth_cm=3, 
+            output_dir=output_dir
+        )
+        
+        # Préparer la réponse
+        response_data = {
+            'status': 'success',
+            'total_cubes': len(cube_results),
+            'cubes': cube_results
+        }
+        
+        return jsonify(response_data)
+    
+    except Exception as e:
+        logging.error(f"Erreur lors de la génération des cubes 3D: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@bp.route('/artwork/<int:artwork_id>/generate_3d_cube', methods=['POST', 'GET'])
+@login_required
+def generate_artwork_3d_cube(artwork_id):
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Récupérer les données de la requête
+        data = request.get_json()
+        logger.debug("En-tetes de la requete : %s", request.headers)
+        logger.debug("Content-Type: %s", request.content_type)
+        logger.debug("Donnees JSON recues : %s", data)
+
+        # Vérifier que l'artwork_id correspond
+        if str(artwork_id) != data.get('artwork_id'):
+            logger.warning("ID de l'artwork incorrect")
+            return jsonify({"error": "ID de l'artwork incorrect"}), 400
+
+        # Récupérer l'artwork
+        artwork = Artwork.query.get_or_404(artwork_id)
+        logger.debug("Oeuvre trouvee : %s", artwork.titre)
+        
+        # Récupérer le chemin complet de l'image
+        base_path = os.path.normpath(os.path.join('F:', os.sep, 'image_to_3d', 'app', 'static', 'artworks'))
+        image_path = os.path.normpath(os.path.join(base_path, artwork.photo_path.lstrip('artworks/')))
+        logger.debug("Chemin de base : %s", base_path)
+        logger.debug("Chemin complet de l'image : %s", image_path)
+        
+        # Vérifier si l'image existe réellement
+        if not os.path.exists(image_path):
+            logger.warning("Fichier image non trouve : %s", image_path)
+            
+            # Logs supplémentaires de débogage
+            try:
+                logger.warning("Contenu du répertoire parent : %s", os.listdir(base_path))
+            except Exception as e:
+                logger.warning("Erreur lors de la lecture du répertoire : %s", str(e))
+            
+            return jsonify({"error": "Image non trouvee"}), 404
+        
+        # Créer un répertoire pour les cubes 3D
+        output_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], '3d_cubes')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Générer le cube 3D
+        cube_result = create_artwork_cube(
+            image_path, 
+            artwork_width_cm=artwork.dimension_largeur or 10,  # Valeur par défaut si None
+            artwork_height_cm=artwork.dimension_hauteur or 10, 
+            depth_cm=3,  # Profondeur fixée à 3 cm
+            output_dir=output_dir
+        )
+        logger.debug("Cube 3D genere : %s", cube_result)
+        
+        # Mettre à jour l'artwork avec le chemin du cube 3D
+        artwork.cube_3d_path = cube_result['obj_path']
+        db.session.commit()
+        
+        logger.info("Generation de cube 3D terminee avec succes")
+        return jsonify({
+            'success': True,
+            'message': 'Cube 3D genere avec succes',
+            'cube_3d_path': cube_result['obj_path']
+        }), 200
+    
+    except Exception as e:
+        logger.error("Erreur lors de la generation du cube 3D : %s", str(e))
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'Erreur lors de la generation du cube 3D : %s' % str(e)
+        }), 500

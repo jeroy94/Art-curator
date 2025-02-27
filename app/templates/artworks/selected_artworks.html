@@ -45,6 +45,11 @@
                                     {{ artwork.dimension_largeur|int }}x{{ artwork.dimension_hauteur|int }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur|int }}{% endif %} cm
                                 </p>
                             </div>
+                            <div class="card-footer text-center">
+                                <button class="btn btn-primary generate-3d-cube" data-artwork-id="{{ artwork.id }}">
+                                    <i class="fas fa-cube me-2"></i>Générer Cube 3D
+                                </button>
+                            </div>
                         </div>
                     </div>
                     {% endif %}
@@ -54,4 +59,42 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.error('🚨 SCRIPT CHARGÉ');
+    
+    const buttons = document.querySelectorAll('.generate-3d-cube');
+    console.error(`🔢 Boutons trouvés : ${buttons.length}`);
+    
+    buttons.forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            
+            const artworkId = this.getAttribute('data-artwork-id');
+            console.error(`🎯 Bouton cliqué - Artwork ID: ${artworkId}`);
+            
+            fetch(`/artworks/artwork/${artworkId}/generate_3d_cube`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ artwork_id: artworkId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.error('📦 Réponse serveur :', data);
+                alert(data.message || 'Cube 3D généré');
+            })
+            .catch(error => {
+                console.error('❌ Erreur :', error);
+                alert('Erreur lors de la génération');
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

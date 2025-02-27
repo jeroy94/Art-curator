@@ -1112,10 +1112,22 @@ def print_all_cartels():
     # Récupérer tous les artistes avec leurs œuvres sélectionnées
     artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').distinct().all()
     
+    # Logs de débogage
+    logging.info(f"Nombre total d'artistes trouvés : {len(artists)}")
+    
     # Filtrer les artistes pour ne garder que ceux avec des œuvres sélectionnées
     artists_with_selected_artworks = [
         artist for artist in artists 
         if any(artwork.statut == 'selectionne' for artwork in artist.artworks)
     ]
+    
+    # Logs détaillés
+    logging.info(f"Nombre d'artistes avec œuvres sélectionnées : {len(artists_with_selected_artworks)}")
+    
+    for artist in artists_with_selected_artworks:
+        logging.info(f"Artiste : {artist.nom} {artist.prenom}")
+        for artwork in artist.artworks:
+            if artwork.statut == 'selectionne':
+                logging.info(f"  - Œuvre sélectionnée : {artwork.titre}")
     
     return render_template('artworks/print_cartels.html', artists=artists_with_selected_artworks)

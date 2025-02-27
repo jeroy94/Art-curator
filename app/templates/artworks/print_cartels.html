@@ -4,136 +4,62 @@
 {{ super() }}
 <style>
     @media print {
-        body * {
-            visibility: hidden;
+        body {
+            margin: 0;
+            padding: 0;
         }
-        #print-section, #print-section * {
-            visibility: visible;
+        .print-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            page-break-inside: avoid;
         }
-        #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+        .cartel {
+            page-break-inside: avoid;
         }
-        .cartel-page {
-            page-break-after: always;
-        }
-    }
-
-    @page {
-        size: A4;
-        margin: 5mm;
-    }
-
-    .cartel-page {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: flex-start;
-        page-break-inside: avoid;
-    }
-
-    .cartel-container {
-        font-family: 'Arial', sans-serif;
-        width: 100mm;
-        height: 50mm;
-        margin: 2mm;
-        padding: 5mm;
-        border: 5px solid black;  /* Bordure TRÈS visible */
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        text-align: center;
-        position: relative;
-    }
-
-    .cartel-container::before,
-    .cartel-container::after {
-        content: '';
-        position: absolute;
-        left: -5px;
-        right: -5px;
-        height: 5px;
-        background-color: black;
-    }
-
-    .cartel-container::before {
-        top: -5px;
-    }
-
-    .cartel-container::after {
-        bottom: -5px;
-    }
-
-    .cartel-artist {
-        font-size: 10pt;
-        font-weight: bold;
-        color: #000;
-        margin-bottom: 2mm;
-        text-transform: uppercase;
-    }
-
-    .cartel-artwork-title {
-        font-size: 9pt;
-        font-style: italic;
-        color: #333;
-        margin-bottom: 2mm;
-        margin: 3mm 0;
-    }
-
-    .cartel-metadata {
-        font-size: 8pt;
-        color: #666;
-        line-height: 1.4;
-        font-size: 9pt;
-    }
-
-    @media print {
-        .cartel-container {
-            -webkit-print-color-adjust: exact !important;
-            color-adjust: exact !important;
-        }
-    }
-
-    /* Debug style pour visualiser les bordures */
-    .debug-border {
-        border: 3px solid red !important;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="print-section">
+<div class="print-container" style="
+    display: flex; 
+    flex-wrap: wrap; 
+    justify-content: center;
+    width: 210mm; /* Largeur A4 */
+    margin: 0 auto;
+">
     {% for artist in artists %}
-        <div class="cartel-page">
-            {% for artwork in artist.artworks if artwork.statut == 'selectionne' %}
-            <div class="cartel-container">
-                <div class="cartel-artist">{{ artist.nom|upper }} {{ artist.prenom|upper }}</div>
-                <div class="cartel-artwork-title">{{ artwork.titre }}</div>
-                <div class="cartel-metadata">
-                    <p>Technique : {{ artwork.technique or 'Non spécifiée' }}</p>
-                    <p>Dimensions : 
-                        {{ artwork.dimension_largeur or '?' }}x{{ artwork.dimension_hauteur or '?' }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur or '?' }}{% endif %} cm
-                    </p>
+        {% for artwork in artist.artworks %}
+            {% if artwork.statut == 'selectionne' %}
+                <div class="cartel" style="
+                    width: 90mm; 
+                    height: 45mm; 
+                    border: 1px solid black; 
+                    margin: 5mm; 
+                    padding: 5mm; 
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    text-align: center;
+                    font-family: Arial, sans-serif;
+                    box-sizing: border-box;
+                ">
+                    <h3 style="margin: 0; font-size: 12pt;">{{ artist.nom }} {{ artist.prenom }}</h3>
+                    <p style="margin: 2mm 0; font-size: 10pt; font-style: italic;">{{ artwork.titre }}</p>
+                    <div style="font-size: 8pt;">
+                        <p style="margin: 0;">{{ artwork.technique or 'Technique non spécifiée' }}</p>
+                        <p style="margin: 0;">
+                            {% if artwork.dimension_largeur and artwork.dimension_hauteur %}
+                                {{ artwork.dimension_largeur }}x{{ artwork.dimension_hauteur }}{% if artwork.dimension_profondeur %}x{{ artwork.dimension_profondeur }}{% endif %} cm
+                            {% else %}
+                                Dimensions non spécifiées
+                            {% endif %}
+                        </p>
+                    </div>
                 </div>
-            </div>
-            {% if loop.index % 2 == 0 %}
-                <div style="width: 100%; height: 0; page-break-before: always;"></div>
             {% endif %}
-            {% endfor %}
-        </div>
+        {% endfor %}
     {% endfor %}
 </div>
-
-<script>
-    window.onload = function() {
-        // Option de débogage : ajouter une bordure rouge visible
-        // Décommentez la ligne suivante si vous ne voyez toujours pas de bordure
-        // document.querySelectorAll('.cartel-container').forEach(el => el.classList.add('debug-border'));
-        
-        window.print();
-    }
-</script>
 {% endblock %}

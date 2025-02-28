@@ -19,6 +19,8 @@ import qrcode
 import io
 import base64
 from sqlalchemy import case
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 bp = Blueprint('artworks', __name__, url_prefix='/artworks')
 
@@ -792,9 +794,40 @@ def export_selected_artworks_pdf():
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         styles = getSampleStyleSheet()
 
+        # Enregistrer la police Philosopher si possible
+        try:
+            pdfmetrics.registerFont(TTFont('Philosopher', 'app/static/fonts/Philosopher-Regular.ttf'))
+            pdfmetrics.registerFont(TTFont('Philosopher-Bold', 'app/static/fonts/Philosopher-Bold.ttf'))
+            title_font = 'Philosopher-Bold'
+            body_font = 'Philosopher'
+        except Exception as e:
+            current_app.logger.warning(f"Impossible de charger la police Philosopher : {e}")
+            title_font = 'Helvetica-Bold'
+            body_font = 'Helvetica'
+
+        # Styles personnalisés
+        artist_name_style = ParagraphStyle(
+            'ArtistNameStyle', 
+            parent=styles['Heading2'], 
+            fontName=title_font,
+            textColor=colors.black,
+            alignment=TA_LEFT,
+            leftIndent=-20*mm,
+            spaceAfter=6
+        )
+
         # Titre principal
-        story = []
-        story.append(Paragraph("Catalogue des Œuvres Sélectionnées", styles['Title']))
+        story = []  # Initialiser story
+        story.append(Paragraph("Catalogue des Œuvres Sélectionnées", 
+            ParagraphStyle(
+                'CatalogueTitle', 
+                parent=styles['Title'], 
+                fontName=title_font,
+                fontSize=16,
+                textColor=colors.black,
+                alignment=TA_CENTER
+            )
+        ))
         story.append(Spacer(1, 6))
 
         # Constantes pour la mise en page
@@ -810,18 +843,8 @@ def export_selected_artworks_pdf():
             # Préparer les éléments pour cet artiste
             artist_elements = []
             
-            # Créer un style personnalisé pour le nom de l'artiste
-            artist_name_style = ParagraphStyle(
-                'ArtistNameStyle', 
-                parent=styles['Heading2'], 
-                textColor=colors.black,
-                alignment=TA_LEFT,  # Alignement à gauche
-                leftIndent=-20*mm,  # Décalage de 20mm vers la gauche
-                spaceAfter=6        # Espace après le nom
-            )
-
             # Nom de l'artiste
-            artist_name = artist.nom_artiste or f"{artist.prenom} {artist.nom}"
+            artist_name = artist.nom_artiste or f"{artist.nom} {artist.prenom}"
             if artist.nom_artiste:
                 artist_name += f" ({artist.nom_artiste})"
             artist_paragraph = Paragraph(artist_name, artist_name_style)
@@ -1140,7 +1163,14 @@ def edit_cartel(artwork_id):
         artwork.dimension_profondeur = request.form.get('dimension_profondeur', artwork.dimension_profondeur)
         
         # Nouveau champ pour le lien du QR code de l'artiste
-        artist.qr_code_link = request.form.get('qr_code_link', artist.site_internet)
+        qr_link_type = request.form.get('qr_link_type', 'website')
+        
+        if qr_link_type == 'artworks_list':
+            # Générer un lien vers la liste des œuvres de l'artiste
+            artist.qr_code_link = url_for('artworks.selected_artworks', artist_id=artist.id, _external=True)
+        else:
+            # Utiliser le site internet ou un lien par défaut
+            artist.qr_code_link = request.form.get('site_internet', artist.site_internet)
         
         try:
             db.session.commit()
@@ -1275,13 +1305,24 @@ def fix_image_paths():
 @login_required
 def selected_artworks():
     """Affiche la liste des œuvres sélectionnées par artiste."""
-    # Récupérer tous les artistes avec leurs œuvres sélectionnées
-    artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').order_by(Artist.nom).all()
+    # Récupérer l'ID de l'artiste depuis les paramètres de requête (optionnel)
+    artist_id = request.args.get('artist_id', type=int)
     
-    # Filtrer les artistes pour ne garder que ceux avec des œuvres sélectionnées
-    artists_with_selected = [
-        artist for artist in artists 
-        if any(artwork.statut == 'selectionne' for artwork in artist.artworks)
-    ]
+    # Requête de base pour les artistes avec œuvres sélectionnées
+    query = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne')
     
-    return render_template('artworks/selected_artworks.html', artists=artists_with_selected)
+    # Filtrer par artiste si un ID est fourni
+    if artist_id:
+        query = query.filter(Artist.id == artist_id)
+    
+    # Récupérer les artistes avec leurs œuvres sélectionnées
+    artists = query.order_by(Artist.nom).all()
+    
+    # Récupérer l'artiste si un ID est fourni (pour le titre de la page)
+    artist = Artist.query.get(artist_id) if artist_id else None
+    
+    return render_template(
+        'artworks/selected_artworks.html', 
+        artists=artists, 
+        artist=artist
+    )

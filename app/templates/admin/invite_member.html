@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Inviter un nouveau membre</h2>
+    
+    {% if invitations %}
+    <div class="card mb-4">
+        <div class="card-header">
+            Invitations en cours
+        </div>
+        <ul class="list-group list-group-flush">
+            {% for invitation in invitations %}
+            <li class="list-group-item">
+                {{ invitation.email }} - 
+                Rôle : {{ invitation.role|capitalize }} - 
+                Expire le : {{ invitation.expires_at.strftime('%d/%m/%Y %H:%M') }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
+    <form method="POST" class="needs-validation" novalidate>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email" required 
+                   placeholder="Email du nouveau membre/artiste">
+            <div class="invalid-feedback">
+                Veuillez entrer une adresse email valide.
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="role">Rôle</label>
+            <select class="form-control" id="role" name="role" required>
+                <option value="membre">Membre</option>
+                <option value="artiste">Artiste</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Envoyer une invitation</button>
+    </form>
+</div>
+
+<script>
+// Validation de formulaire
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+</script>
+{% endblock %}

@@ -58,7 +58,8 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    {% for artwork in artiste_groupe.artworks %}
+                    {% for artwork_info in artiste_groupe.artworks %}
+                    {% set artwork = artwork_info.artwork %}
                     <div class="col-md-4 mb-4">
                         <div class="card" style="width: 350px;">
                             {% if artwork.photo_path %}
@@ -95,14 +96,14 @@
                                 
                                 <div class="vote-section">
                                     <div class="btn-group" role="group">
-                                        <input type="radio" class="btn-check" name="vote_{{ artwork.id }}" id="vote_up_{{ artwork.id }}" value="up" 
-                                               {% if user_votes.get(artwork.id|string) == 'up' %}checked{% endif %}>
+                                        <input type="radio" class="btn-check" name="vote_{{ artwork.id }}" id="vote_up_{{ artwork.id }}" value="pour" 
+                                               {% if user_votes.get(artwork.id|string) == 'pour' %}checked{% endif %}>
                                         <label class="btn btn-outline-success" for="vote_up_{{ artwork.id }}">
                                             <i class="bi bi-hand-thumbs-up"></i> Pour
                                         </label>
 
-                                        <input type="radio" class="btn-check" name="vote_{{ artwork.id }}" id="vote_down_{{ artwork.id }}" value="down"
-                                               {% if user_votes.get(artwork.id|string) == 'down' %}checked{% endif %}>
+                                        <input type="radio" class="btn-check" name="vote_{{ artwork.id }}" id="vote_down_{{ artwork.id }}" value="contre"
+                                               {% if user_votes.get(artwork.id|string) == 'contre' %}checked{% endif %}>
                                         <label class="btn btn-outline-danger" for="vote_down_{{ artwork.id }}">
                                             <i class="bi bi-hand-thumbs-down"></i> Contre
                                         </label>
@@ -128,8 +129,8 @@
                                     
                                     <div class="vote-stats text-muted mt-2">
                                         <small>
-                                            Votes totaux : {{ artwork.total_votes }} 
-                                            (Pour : {{ artwork.up_votes }} | Contre : {{ artwork.down_votes }})
+                                            Votes totaux : {{ artwork_info.total_votes }} 
+                                            (Pour : {{ artwork_info.up_votes }} | Contre : {{ artwork_info.down_votes }})
                                         </small>
                                     </div>
                                 </div>
@@ -158,7 +159,8 @@
 
 {% block modal %}
 {% for artiste_groupe in artistes_data %}
-    {% for artwork in artiste_groupe.artworks %}
+    {% for artwork_info in artiste_groupe.artworks %}
+    {% set artwork = artwork_info.artwork %}
     <!-- Modal pour l'image de l'œuvre -->
     <div class="modal fade" id="modal-{{ artwork.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ artwork.id }}" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -262,15 +264,15 @@ document.addEventListener('DOMContentLoaded', function() {
             let message = '';
             if (action === 'vote') {
                 const voteDetails = Object.entries(votes)
-                    .map(([id, vote]) => `Œuvre ${id}: ${vote === 'up' ? '👍' : '👎'}`)
+                    .map(([id, vote]) => `Œuvre ${id}: ${vote === 'pour' ? '👍' : '👎'}`)
                     .join(', ');
                 message = `Votes enregistrés : ${voteDetails}`;
                 createNotification(message, 'success');
             } else if (action === 'selection') {
                 const selectionDetails = Object.entries(selections)
-                    .map(([id, status]) => `Œuvre ${id}: ${status === 'selectionne' ? '✅' : '❌'}`)
+                    .map(([id, selection]) => `Œuvre ${id}: ${selection === 'selectionne' ? '✅' : '❌'}`)
                     .join(', ');
-                message = `Sélections validées : ${selectionDetails}`;
+                message = `Sélections enregistrées : ${selectionDetails}`;
                 createNotification(message, 'success');
             }
         })

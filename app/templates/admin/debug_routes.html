@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Routes du Blueprint Admin</h1>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Endpoint</th>
+                <th>Méthodes</th>
+                <th>Route</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for route in routes %}
+            <tr>
+                <td>{{ route.endpoint }}</td>
+                <td>{{ route.methods|join(', ') }}</td>
+                <td>{{ route.route }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -18,17 +18,45 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 
     # Configuration email
-    MAIL_SERVER = 'smtp.gmail.com'  # À modifier selon votre serveur SMTP
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USERNAME = 'votre-email@gmail.com'  # À remplacer par votre email
-    MAIL_PASSWORD = 'votre-mot-de-passe'  # À remplacer par votre mot de passe
-    MAIL_DEFAULT_SENDER = 'votre-email@gmail.com'  # À remplacer par votre email
-    ADMIN_EMAIL = 'admin@example.com'  # À remplacer par l'email de l'administrateur
+    MAIL_SERVER = 'smtp.gmail.com'
+    MAIL_PORT = 465  # Port SSL
+    MAIL_USE_SSL = True  # Utiliser SSL au lieu de TLS
+    MAIL_USE_TLS = False
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_USERNAME')
+    ADMIN_EMAIL = os.environ.get('MAIL_USERNAME')
+
+    # Configuration de l'URL de base pour les liens
+    BASE_URL = os.environ.get('BASE_URL') or 'http://localhost:5000'
 
     # Configuration logging
     LOG_FILE = os.path.join(basedir, 'app.log')
     LOG_LEVEL = 'DEBUG'
+    
+    # Configuration logging détaillé pour les emails
+    LOGGING_CONFIG = {
+        'version': 1,
+        'formatters': {
+            'detailed': {
+                'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            }
+        },
+        'handlers': {
+            'email_log': {
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(basedir, 'email.log'),
+                'formatter': 'detailed',
+                'level': 'DEBUG'
+            }
+        },
+        'loggers': {
+            'flask_mail': {
+                'handlers': ['email_log'],
+                'level': 'DEBUG'
+            }
+        }
+    }
 
     # Configuration CSRF
     WTF_CSRF_ENABLED = True

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from app.models.models import db, User, Artist
+from app.models.models import db, User
 from datetime import timedelta, datetime
 from werkzeug.security import generate_password_hash
 
@@ -54,10 +54,7 @@ def login():
             login_user(user, remember=remember)
             flash('Connexion réussie !', 'success')
             next_page = request.args.get('next')
-            if user.is_admin:
-                return redirect(next_page or url_for('admin.dashboard'))
-            else:
-                return redirect(next_page or url_for('artworks.list'))
+            return redirect(next_page or url_for('main.index'))
         else:
             flash('Email ou mot de passe incorrect', 'danger')
             
@@ -82,7 +79,6 @@ def update_profile():
     current_password = request.form.get('current_password')
     new_password = request.form.get('new_password')
     confirm_password = request.form.get('confirm_password')
-    is_artist = request.form.get('is_artist') == 'on'
     
     if username != current_user.username:
         if User.query.filter_by(username=username).first():
@@ -101,84 +97,6 @@ def update_profile():
             
         current_user.set_password(new_password)
     
-    if is_artist != current_user.is_artist:
-        current_user.is_artist = is_artist
-        if is_artist and not current_user.artist:
-            artist = Artist(user_id=current_user.id)
-            db.session.add(artist)
-    
     db.session.commit()
     flash('Profil mis à jour avec succès', 'success')
     return redirect(url_for('auth.profile'))
-
-@bp.route('/register/artist', methods=['POST'])
-def register_artist():
-    try:
-        data = request.get_json()
-        
-        # Vérifier les champs obligatoires
-        required_fields = ['nom', 'prenom', 'email', 'password', 'type_artiste']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'error': f'Le champ {field} est obligatoire'}), 400
-        
-        # Vérifier si l'email existe déjà
-        if User.query.filter_by(email=data['email']).first():
-            return jsonify({'error': 'Cet email est déjà utilisé'}), 400
-        
-        # Générer le numéro de dossier
-        current_year = datetime.now().year
-        count = Artist.query.filter(Artist.created_at >= datetime(current_year, 1, 1)).count()
-        numero_dossier = f"{current_year}-{count + 1:03d}"
-        
-        # Créer l'utilisateur
-        user = User(
-            username=data['email'],
-            email=data['email']
-        )
-        user.set_password(data['password'])
-        db.session.add(user)
-        
-        # Créer l'artiste
-        artist = Artist(
-            numero_dossier=numero_dossier,
-            nom=data['nom'],
-            prenom=data['prenom'],
-            nom_artiste=data.get('nom_artiste', ''),
-            email=data['email'],
-            telephone=data.get('telephone', ''),
-            adresse=data.get('adresse', ''),
-            categorie=data['type_artiste']
-        )
-        
-        db.session.add(artist)
-        db.session.commit()
-        
-        # Créer le token JWT
-        access_token = create_access_token(identity=user.id)
-        
-        return jsonify({
-            'message': 'Inscription réussie',
-            'artist_id': artist.id,
-            'numero_dossier': artist.numero_dossier,
-            'token': access_token
-        }), 201
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"Erreur lors de l'inscription de l'artiste: {str(e)}")
-        return jsonify({'error': "Une erreur est survenue lors de l'inscription"}), 500
-
-@bp.route('/login/artist', methods=['POST'])
-def login_artist():
-    data = request.get_json()
-    artist = Artist.query.filter_by(email=data['email']).first()
-    
-    if artist and artist.check_password(data['password']):
-        access_token = create_access_token(identity=f"artist_{artist.id}")
-        return jsonify({
-            'access_token': access_token,
-            'type_artiste': artist.type_artiste
-        })
-    
-    return jsonify({'error': 'Email ou mot de passe incorrect'}), 401

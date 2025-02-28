@@ -18,6 +18,7 @@ from app.utils.cube_3d_generator import batch_create_3d_cubes, create_artwork_cu
 import qrcode
 import io
 import base64
+from sqlalchemy import case
 
 bp = Blueprint('artworks', __name__, url_prefix='/artworks')
 
@@ -30,12 +31,6 @@ def get_upload_path():
     """Retourne le chemin du dossier d'upload."""
     return os.path.join(current_app.root_path, 'static', 'artworks')
 
-@bp.route('/gallery')
-def gallery():
-    """Affiche la galerie d'œuvres."""
-    artworks = Artwork.query.order_by(Artwork.created_at.desc()).all()
-    return render_template('artworks/gallery.html', artworks=artworks)
-
 @bp.route('/view/<int:artwork_id>')
 def view(artwork_id):
     """Affiche une œuvre en détail avec son modèle 3D."""
@@ -43,12 +38,19 @@ def view(artwork_id):
     return render_template('artworks/view.html', artwork=artwork)
 
 @bp.route('/submit', methods=['GET', 'POST'])
-@login_required
 def submit():
-    """Soumet une nouvelle œuvre."""
+    """Soumet une nouvelle œuvre sans nécessiter de connexion."""
     if request.method == 'GET':
         return render_template('artworks/submit.html')
-        
+    
+    # Validation des données
+    titre = request.form.get('titre', '')
+    technique = request.form.get('technique', '')
+    description = request.form.get('description', '')
+    
+    if not titre or not technique:
+        return jsonify({'error': 'Le titre et la technique sont obligatoires'}), 400
+    
     if 'photo' not in request.files:
         return jsonify({'error': 'Aucune image n\'a été fournie'}), 400
     
@@ -70,236 +72,226 @@ def submit():
 
     # Créer l'œuvre dans la base de données
     artwork = Artwork(
-        number=request.form['number'],
-        name=request.form['name'],
-        description=request.form.get('description', ''),
-        technique=request.form['technique'],
-        width=float(request.form['width']),
-        height=float(request.form['height']),
-        depth=float(request.form.get('depth', 0)) or None,
-        price=float(request.form['price']),
+        titre=titre,
+        technique=technique,
+        description=description,
         photo_path=photo_path,
-        artist_id=current_user.artist.id
+        statut='en_attente'  # Par défaut en attente de sélection
     )
     
     try:
         db.session.add(artwork)
         db.session.commit()
-        return jsonify({'success': True})
+        
+        # Générer un cube 3D si possible
+        try:
+            create_artwork_cube(artwork)
+        except Exception as e:
+            # Log l'erreur sans bloquer la soumission
+            logging.error(f"Erreur lors de la génération du cube 3D : {e}")
+        
+        return jsonify({
+            'message': 'Œuvre soumise avec succès',
+            'artwork_id': artwork.id
+        }), 201
+    
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Erreur lors de la soumission'}), 500
+        logging.error(f"Erreur lors de la soumission de l'œuvre : {e}")
+        return jsonify({'error': 'Erreur lors de la soumission de l\'œuvre'}), 500
 
 @bp.route('/vote/<int:artwork_id>', methods=['POST'])
 @login_required
-def vote(artwork_id):
-    # Vérifier si c'est une requête AJAX
-    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        current_app.logger.warning(f'Vote attempt without AJAX: {request.headers}')
-        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
-
-    # Log de débogage
-    current_app.logger.info(f'Vote received for artwork {artwork_id} by user {current_user.id}')
-    current_app.logger.info(f'Vote type: {request.form.get("vote_type")}')
-
-    # Stocker temporairement le vote en session
-    session['temp_vote'] = {
-        'artwork_id': artwork_id,
-        'vote_type': request.form.get('vote_type')
-    }
-
-    return jsonify({
-        'status': 'success',
-        'message': 'Vote en attente de validation'
-    })
-
-@bp.route('/validate_vote', methods=['POST'])
-@login_required
-def validate_vote():
-    # Vérifier si c'est une requête AJAX
-    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        current_app.logger.warning(f'Vote validation attempt without AJAX: {request.headers}')
-        return jsonify({'status': 'error', 'message': 'Requête non autorisée'}), 403
-
-    # Log de débogage
-    current_app.logger.info(f'Vote validation for user {current_user.id}')
-
-    # Récupérer le vote temporaire depuis la session
-    temp_vote = session.get('temp_vote')
-    if not temp_vote:
-        current_app.logger.warning(f'No temporary vote found for user {current_user.id}')
-        return jsonify({'status': 'error', 'message': 'Aucun vote en attente'}), 400
-
-    artwork_id = temp_vote['artwork_id']
-    vote_type = temp_vote['vote_type']
+def vote_artwork(artwork_id):
+    """Permet aux membres et admin de voter pour une œuvre."""
+    # Vérifier que l'utilisateur n'est pas un artiste
+    if not current_user.is_admin and not hasattr(current_user, 'membre'):
+        return jsonify({'error': 'Vous n\'avez pas les droits pour voter'}), 403
+    
     artwork = Artwork.query.get_or_404(artwork_id)
-
-    # Log de débogage
-    current_app.logger.info(f'Processing vote for artwork {artwork_id}, type: {vote_type}')
-
-    # Récupérer le vote de l'utilisateur courant
-    user_vote = Vote.query.filter_by(
-        user_id=current_user.id, 
-        artwork_id=artwork_id
+    
+    # Vérifier si l'utilisateur a déjà voté
+    existing_vote = Vote.query.filter_by(
+        artwork_id=artwork_id, 
+        user_id=current_user.id
     ).first()
-
-    if user_vote:
-        if user_vote.vote_type == vote_type:
-            # L'utilisateur annule son vote
-            current_app.logger.info(f'User {current_user.id} cancelling vote for artwork {artwork_id}')
-            db.session.delete(user_vote)
-        else:
-            # L'utilisateur change son vote
-            current_app.logger.info(f'User {current_user.id} changing vote for artwork {artwork_id}')
-            user_vote.vote_type = vote_type
-    else:
-        # Nouveau vote
-        current_app.logger.info(f'User {current_user.id} creating new vote for artwork {artwork_id}')
-        new_vote = Vote(
-            user_id=current_user.id,
-            artwork_id=artwork_id,
-            vote_type=vote_type
-        )
-        db.session.add(new_vote)
-
-    db.session.commit()
-
-    # Effacer le vote temporaire de la session
-    session.pop('temp_vote', None)
-
-    # Récupérer les nouveaux compteurs de votes
-    up_votes = Vote.query.filter_by(artwork_id=artwork_id, vote_type='up').count()
-    down_votes = Vote.query.filter_by(artwork_id=artwork_id, vote_type='down').count()
-
-    current_app.logger.info(f'Vote counts for artwork {artwork_id}: up={up_votes}, down={down_votes}')
-
-    return jsonify({
-        'status': 'success',
-        'up_votes': up_votes,
-        'down_votes': down_votes
-    })
-
-@bp.route('/get_votes/<int:artwork_id>')
-@login_required
-def get_votes(artwork_id):
-    artwork = Artwork.query.get_or_404(artwork_id)
     
-    # Compter les votes
-    up_votes = Vote.query.filter_by(artwork_id=artwork_id, vote_type='up').count()
-    down_votes = Vote.query.filter_by(artwork_id=artwork_id, vote_type='down').count()
+    if existing_vote:
+        return jsonify({'error': 'Vous avez déjà voté pour cette œuvre'}), 400
     
-    # Récupérer le vote de l'utilisateur courant
-    user_vote = Vote.query.filter_by(
+    # Créer un nouveau vote
+    vote = Vote(
+        artwork_id=artwork_id,
         user_id=current_user.id,
-        artwork_id=artwork_id
-    ).first()
+        vote_type='pour'  # Vote positif par défaut
+    )
     
-    return jsonify({
-        'up_votes': up_votes,
-        'down_votes': down_votes,
-        'user_vote': user_vote.vote_type if user_vote else None
-    })
+    try:
+        db.session.add(vote)
+        artwork.up_votes_count += 1
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Vote enregistré avec succès',
+            'total_votes': artwork.up_votes_count
+        }), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Erreur lors de l\'enregistrement du vote'}), 500
 
-@bp.route('/selection/<int:artwork_id>/<action>', methods=['POST'])
+@bp.route('/select_artwork/<int:artwork_id>', methods=['POST'])
 @login_required
-def selection(artwork_id, action):
+def select_artwork(artwork_id):
+    """Permet uniquement à l'admin de sélectionner une œuvre."""
+    # Vérifier que seul l'admin peut sélectionner
     if not current_user.is_admin:
-        return jsonify({'success': False, 'message': 'Permission refusée'}), 403
-        
-    artwork = Artwork.query.get_or_404(artwork_id)
+        return jsonify({'error': 'Vous n\'avez pas les droits pour sélectionner une œuvre'}), 403
     
-    if action not in ['selectionne', 'refuse', 'en_attente']:
-        return jsonify({'success': False, 'message': 'Action invalide'}), 400
-        
-    artwork.statut = action
+    artwork = Artwork.query.get_or_404(artwork_id)
+    artwork.statut = 'selectionne'
     
     try:
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Statut mis à jour avec succès'})
+        return jsonify({
+            'message': 'Œuvre sélectionnée avec succès',
+            'artwork_id': artwork.id
+        }), 200
+    
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Erreur lors de la mise à jour du statut'}), 500
+        return jsonify({'error': 'Erreur lors de la sélection de l\'œuvre'}), 500
 
-@bp.route('/selected_artworks')
+@bp.route('/salon_de_vote', methods=['GET', 'POST'])
 @login_required
-def selected_artworks():
-    """Affiche la liste des œuvres sélectionnées par artiste."""
-    # Récupérer tous les artistes avec leurs œuvres sélectionnées
-    artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').order_by(Artist.nom).all()
+def salon_de_vote():
+    """Page de vote accessible aux membres et admin."""
+    # Vérifier que l'utilisateur est un membre ou un admin
+    if not current_user.is_admin and not current_user.is_membre:
+        current_app.logger.warning(f"Accès refusé pour l'utilisateur {current_user.username}")
+        return jsonify({'error': 'Accès non autorisé'}), 403
     
-    # Filtrer les artistes pour ne garder que ceux avec des œuvres sélectionnées
-    artists_with_selected = [
-        artist for artist in artists 
-        if any(artwork.statut == 'selectionne' for artwork in artist.artworks)
-    ]
-    
-    return render_template('artworks/selected_artworks.html', artists=artists_with_selected)
-
-@bp.route('/uploads/<path:filename>')
-def uploaded_file(filename):
-    """Sert les fichiers uploadés."""
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
-
-@bp.route('/debug_images')
-def debug_images():
-    """Route de débogage pour afficher les informations des images."""
-    artworks = Artwork.query.all()
-    debug_info = []
-    
-    for artwork in artworks:
-        artwork_info = {
-            'name': artwork.name,
-            'photo_path': artwork.photo_path,
-            'url': url_for('static', filename=artwork.photo_path) if artwork.photo_path else None
-        }
+    # Gestion des requêtes GET
+    if request.method == 'GET':
+        # Logs de débogage détaillés
+        current_app.logger.info(f"Utilisateur connecté : {current_user.username}")
         
-        if artwork.photo_path:
-            full_path = os.path.join(current_app.root_path, 'static', artwork.photo_path)
-            artwork_info.update({
-                'full_path': full_path,
-                'exists': os.path.exists(full_path),
-                'static_folder': os.path.join(current_app.root_path, 'static'),
-                'static_folder_exists': os.path.exists(os.path.join(current_app.root_path, 'static')),
-                'uploads_folder_exists': os.path.exists(os.path.join(current_app.root_path, 'static', 'uploads')),
-                'artworks_folder_exists': os.path.exists(os.path.join(current_app.root_path, 'static', 'uploads', 'artworks'))
-            })
+        # Requête pour récupérer toutes les œuvres avec les statuts pertinents
+        artworks = Artwork.query.filter(Artwork.statut.in_(['en_attente', 'selectionne', 'refuse'])).all()
+        
+        # Regrouper les œuvres par artiste
+        artistes_data = []
+        artistes_dict = {}
+        
+        # Log de débogage global pour les votes
+        all_votes = Vote.query.all()
+        current_app.logger.info(f"Nombre total de votes dans la base de données : {len(all_votes)}")
+        
+        for artwork in artworks:
+            artist = Artist.query.get(artwork.artist_id)
+            if artist is None:
+                current_app.logger.warning(f"Artiste non trouvé pour l'œuvre {artwork.id}")
+                continue
             
-            if artwork_info['exists']:
-                artwork_info['size'] = os.path.getsize(full_path)
-                artwork_info['is_readable'] = os.access(full_path, os.R_OK)
+            # Nom de l'artiste
+            nom_artiste = artist.nom_artiste or f"{artist.prenom} {artist.nom}"
+            
+            # Créer ou récupérer le groupe d'artiste
+            if nom_artiste not in artistes_dict:
+                artiste_groupe = {
+                    'nom_artiste': nom_artiste,
+                    'artworks': []
+                }
+                artistes_data.append(artiste_groupe)
+                artistes_dict[nom_artiste] = artiste_groupe
+            
+            # Récupérer les votes pour cette œuvre
+            votes_artwork = Vote.query.filter_by(artwork_id=artwork.id).all()
+            
+            # Log de débogage pour chaque œuvre
+            current_app.logger.info(f"Œuvre {artwork.id} - {artwork.titre}")
+            current_app.logger.info(f"Nombre de votes pour cette œuvre : {len(votes_artwork)}")
+            
+            for vote in votes_artwork:
+                current_app.logger.info(f"Vote : ID={vote.id}, Type={vote.vote_type}, Utilisateur={vote.user_id}")
+            
+            # Compter les votes
+            up_votes = sum(1 for vote in votes_artwork if vote.vote_type == 'pour')
+            down_votes = sum(1 for vote in votes_artwork if vote.vote_type == 'contre')
+            
+            # Créer un dictionnaire avec toutes les informations
+            artwork_info = {
+                'artwork': artwork,
+                'up_votes': up_votes,
+                'down_votes': down_votes,
+                'total_votes': len(votes_artwork)
+            }
+            
+            # Ajouter l'œuvre au groupe
+            artistes_dict[nom_artiste]['artworks'].append(artwork_info)
+        
+        # Récupérer les votes de l'utilisateur
+        user_votes = {str(vote.artwork_id): vote.vote_type for vote in 
+                      Vote.query.filter_by(user_id=current_user.id).all()}
+        
+        # Récupérer les sélections de l'utilisateur
+        user_selections = get_user_selections()
+        
+        return render_template('artworks/salon_de_vote.html', 
+                               artistes_data=artistes_data, 
+                               user_votes=user_votes,
+                               user_selections=user_selections)
     
-    return jsonify({
-        'artworks': debug_info,
-        'static_url': url_for('static', filename='test.txt'),
-        'app_root': current_app.root_path,
-        'static_folder': current_app.static_folder
-    })
-
-@bp.route('/fix_image_paths')
-@login_required
-def fix_image_paths():
-    """Corrige les chemins d'images dans la base de données."""
-    artworks = Artwork.query.all()
-    fixed_count = 0
-    
-    for artwork in artworks:
-        if artwork.photo_path and 'uploads/artworks/' in artwork.photo_path:
-            # Enlever 'uploads/' du chemin
-            new_path = artwork.photo_path.replace('uploads/artworks/', 'artworks/')
-            artwork.photo_path = new_path
-            fixed_count += 1
-    
-    if fixed_count > 0:
+    # Gestion des requêtes POST (votes et sélections)
+    if request.method == 'POST':
+        # Vérifier que c'est une requête AJAX
+        if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Requête non autorisée'}), 403
+        
+        # Récupérer l'action (vote ou selection)
+        action = request.form.get('action')
+        
         try:
-            db.session.commit()
-            flash(f'{fixed_count} chemins d\'images corrigés avec succès.', 'success')
+            if action == 'vote':
+                # Collecter et enregistrer les votes
+                for key, value in request.form.items():
+                    if key.startswith('vote_'):
+                        artwork_id = int(key.split('_')[1])
+                        update_artwork_vote(artwork_id, value, current_user)
+
+                return jsonify({'message': 'Votes enregistrés avec succès'}), 200
+            
+            elif action == 'selection':
+                # Vérifier que seul l'admin peut sélectionner
+                if not current_user.is_admin:
+                    return jsonify({'error': 'Seul l\'admin peut sélectionner des œuvres'}), 403
+                
+                # Collecter les œuvres sélectionnées et refusées
+                selected_artworks = []
+                refused_artworks = []
+                
+                for key, value in request.form.items():
+                    if key.startswith('selection_'):
+                        artwork_id = int(key.split('_')[1])
+                        if value == 'selectionne':
+                            selected_artworks.append(artwork_id)
+                        elif value == 'refuse':
+                            refused_artworks.append(artwork_id)
+                
+                # Mettre à jour les sélections
+                update_artwork_selections(selected_artworks, refused_artworks)
+
+                return jsonify({'message': 'Sélections enregistrées avec succès'}), 200
+            
+            else:
+                return jsonify({'error': 'Action non reconnue'}), 400
+        
         except Exception as e:
-            db.session.rollback()
-            flash(f'Erreur lors de la correction des chemins : {str(e)}', 'danger')
-    else:
-        flash('Aucun chemin d\'image à corriger.', 'info')
-    
-    return redirect(url_for('artworks.selected_artworks'))
+            current_app.logger.error(f"Erreur lors du traitement : {e}")
+            return jsonify({
+                'status': 'error', 
+                'message': 'Une erreur est survenue lors du traitement'
+            }), 500
 
 @bp.route('/validate_all_votes', methods=['POST'])
 @login_required
@@ -485,9 +477,9 @@ def submit_vote():
         'down_votes': down_votes_count
     })
 
-@bp.route('/salon_de_vote', methods=['GET', 'POST'])
+@bp.route('/salon_de_vote_page')
 @login_required
-def salon_de_vote():
+def salon_de_vote_page():
     # Vérification explicite de la requête AJAX
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
@@ -629,7 +621,7 @@ def get_artistes_data():
     for artist in artists:
         artworks = Artwork.query.filter_by(artist_id=artist.id).all()
         artiste_groupe = {
-            'nom': artist.nom,
+            'nom': artist.nom_artiste or f"{artist.prenom} {artist.nom}",
             'artworks': artworks
         }
         artistes_data.append(artiste_groupe)
@@ -660,8 +652,13 @@ def get_user_selections():
     Returns:
         dict: Dictionnaire des statuts des œuvres
     """
-    user_selections = {str(artwork.id): artwork.statut for artwork in Artwork.query.all() 
-                       if artwork.statut in ['selectionne', 'refuse']}
+    # Récupérer toutes les œuvres avec un statut spécifique
+    artworks = Artwork.query.filter(Artwork.statut.in_(['selectionne', 'refuse'])).all()
+    
+    # Créer un dictionnaire avec l'ID de l'œuvre et son statut
+    user_selections = {str(artwork.id): artwork.statut for artwork in artworks}
+    
+    current_app.logger.info(f"Sélections récupérées : {user_selections}")
     
     return user_selections
 
@@ -671,9 +668,26 @@ def update_artwork_vote(artwork_id, vote_type, current_user):
     
     Args:
         artwork_id (int): ID de l'œuvre
-        vote_type (str): Type de vote ('up' ou 'down')
+        vote_type (str): Type de vote 
+            Formats acceptés : 
+            - 'up', 'down' (ancien format)
+            - 'pour', 'contre' (nouveau format)
         current_user: Utilisateur connecté
     """
+    # Convertir les anciens formats aux nouveaux
+    vote_mapping = {
+        'up': 'pour',
+        'down': 'contre'
+    }
+    
+    # Normaliser le type de vote
+    normalized_vote_type = vote_mapping.get(vote_type, vote_type)
+    
+    # Vérifier que le type de vote est valide
+    if normalized_vote_type not in ['pour', 'contre']:
+        current_app.logger.warning(f'Type de vote invalide : {vote_type}')
+        return
+    
     existing_vote = Vote.query.filter_by(
         artwork_id=artwork_id, 
         user_id=current_user.id
@@ -681,16 +695,17 @@ def update_artwork_vote(artwork_id, vote_type, current_user):
     
     if existing_vote:
         current_app.logger.info(f'Mise à jour du vote pour l\'œuvre {artwork_id}')
-        existing_vote.vote_type = vote_type
+        existing_vote.vote_type = normalized_vote_type
     else:
         current_app.logger.info(f'Nouveau vote pour l\'œuvre {artwork_id}')
         new_vote = Vote(
             artwork_id=artwork_id, 
             user_id=current_user.id, 
-            vote_type=vote_type
+            vote_type=normalized_vote_type
         )
         db.session.add(new_vote)
     
+    # Commit les changements
     db.session.commit()
 
 def update_artwork_selections(selected_artworks, refused_artworks):
@@ -929,55 +944,79 @@ def export_selected_artworks_pdf():
         flash("Une erreur est survenue lors de la génération du PDF.", "error")
         return redirect(url_for('main.index'))
 
-@bp.route('/generate_3d_cubes', methods=['GET'])
+@bp.route('/generate_3d_cubes', methods=['POST'])
 @login_required
 def generate_3d_cubes():
-    """
-    Génère des cubes 3D pour toutes les œuvres sélectionnées.
+    """Génération de cubes 3D pour les membres et admin."""
+    # Vérifier que l'utilisateur est un membre ou un admin
+    if not current_user.is_admin and not current_user.is_membre:
+        return jsonify({'error': 'Accès non autorisé'}), 403
     
-    Returns:
-        JSON avec les informations des cubes 3D générés
-    """
+    try:
+        # Récupérer toutes les œuvres sélectionnées
+        selected_artworks = Artwork.query.filter_by(statut='selectionne').all()
+        
+        results = []
+        for artwork in selected_artworks:
+            cube = create_artwork_cube(artwork)
+            results.append({
+                'artwork_id': artwork.id,
+                'cube_path': cube.path if cube else None
+            })
+        
+        return jsonify({
+            'message': 'Cubes 3D générés avec succès',
+            'cubes': results
+        }), 200
+    
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors de la génération des cubes : {str(e)}'}), 500
+
+@bp.route('/export_pdf', methods=['POST'])
+@login_required
+def export_pdf():
+    """Exportation de PDF pour les membres et admin."""
+    # Vérifier que l'utilisateur est un membre ou un admin
+    if not current_user.is_admin and not current_user.is_membre:
+        return jsonify({'error': 'Accès non autorisé'}), 403
+    
     try:
         # Récupérer les œuvres sélectionnées
         selected_artworks = Artwork.query.filter_by(statut='selectionne').all()
         
-        # Vérifier s'il y a des œuvres sélectionnées
-        if not selected_artworks:
-            return jsonify({
-                'status': 'error',
-                'message': 'Aucune œuvre sélectionnée'
-            }), 400
+        # Générer le PDF
+        pdf_path = generate_artworks_pdf(selected_artworks)
         
-        # Extraire les chemins des images
-        image_paths = [artwork.photo_path for artwork in selected_artworks if artwork.photo_path]
-        
-        # Créer un répertoire pour les cubes 3D
-        output_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], '3d_cubes')
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Générer les cubes 3D
-        cube_results = batch_create_3d_cubes(
-            image_paths, 
-            depth_cm=3, 
-            output_dir=output_dir
-        )
-        
-        # Préparer la réponse
-        response_data = {
-            'status': 'success',
-            'total_cubes': len(cube_results),
-            'cubes': cube_results
-        }
-        
-        return jsonify(response_data)
+        return jsonify({
+            'message': 'PDF exporté avec succès',
+            'pdf_path': pdf_path
+        }), 200
     
     except Exception as e:
-        logging.error(f"Erreur lors de la génération des cubes 3D: {e}")
+        return jsonify({'error': f'Erreur lors de l\'export PDF : {str(e)}'}), 500
+
+@bp.route('/print_cartels', methods=['POST'])
+@login_required
+def print_cartels():
+    """Impression des cartels pour les membres et admin."""
+    # Vérifier que l'utilisateur est un membre ou un admin
+    if not current_user.is_admin and not current_user.is_membre:
+        return jsonify({'error': 'Accès non autorisé'}), 403
+    
+    try:
+        # Récupérer les œuvres sélectionnées
+        selected_artworks = Artwork.query.filter_by(statut='selectionne').all()
+        
+        # Générer les cartels
+        cartels_path = generate_artworks_cartels(selected_artworks)
+        
         return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+            'message': 'Cartels générés avec succès',
+            'cartels_path': cartels_path
+        }), 200
+    
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors de la génération des cartels : {str(e)}'}), 500
 
 @bp.route('/artwork/<int:artwork_id>/generate_3d_cube', methods=['POST', 'GET'])
 @login_required
@@ -1165,3 +1204,84 @@ def print_all_cartels():
         artists_with_qr.append(artist)
     
     return render_template('artworks/print_cartels.html', artists=artists_with_qr)
+
+@bp.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """Sert les fichiers uploadés."""
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+@bp.route('/debug_images')
+def debug_images():
+    """Route de débogage pour afficher les informations des images."""
+    artworks = Artwork.query.all()
+    debug_info = []
+    
+    for artwork in artworks:
+        artwork_info = {
+            'name': artwork.name,
+            'photo_path': artwork.photo_path,
+            'url': url_for('static', filename=artwork.photo_path) if artwork.photo_path else None
+        }
+        
+        if artwork.photo_path:
+            full_path = os.path.join(current_app.root_path, 'static', artwork.photo_path)
+            artwork_info.update({
+                'full_path': full_path,
+                'exists': os.path.exists(full_path),
+                'static_folder': os.path.join(current_app.root_path, 'static'),
+                'static_folder_exists': os.path.exists(os.path.join(current_app.root_path, 'static')),
+                'uploads_folder_exists': os.path.exists(os.path.join(current_app.root_path, 'static', 'uploads')),
+                'artworks_folder_exists': os.path.exists(os.path.join(current_app.root_path, 'static', 'uploads', 'artworks'))
+            })
+            
+            if artwork_info['exists']:
+                artwork_info['size'] = os.path.getsize(full_path)
+                artwork_info['is_readable'] = os.access(full_path, os.R_OK)
+    
+    return jsonify({
+        'artworks': debug_info,
+        'static_url': url_for('static', filename='test.txt'),
+        'app_root': current_app.root_path,
+        'static_folder': current_app.static_folder
+    })
+
+@bp.route('/fix_image_paths')
+@login_required
+def fix_image_paths():
+    """Corrige les chemins d'images dans la base de données."""
+    artworks = Artwork.query.all()
+    fixed_count = 0
+    
+    for artwork in artworks:
+        if artwork.photo_path and 'uploads/artworks/' in artwork.photo_path:
+            # Enlever 'uploads/' du chemin
+            new_path = artwork.photo_path.replace('uploads/artworks/', 'artworks/')
+            artwork.photo_path = new_path
+            fixed_count += 1
+    
+    if fixed_count > 0:
+        try:
+            db.session.commit()
+            flash(f'{fixed_count} chemins d\'images corrigés avec succès.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erreur lors de la correction des chemins : {str(e)}', 'danger')
+    else:
+        flash('Aucun chemin d\'image à corriger.', 'info')
+    
+    return redirect(url_for('artworks.selected_artworks'))
+
+@bp.route('/selected_artworks')
+@login_required
+def selected_artworks():
+    """Affiche la liste des œuvres sélectionnées par artiste."""
+    # Récupérer tous les artistes avec leurs œuvres sélectionnées
+    artists = Artist.query.join(Artwork).filter(Artwork.statut == 'selectionne').order_by(Artist.nom).all()
+    
+    # Filtrer les artistes pour ne garder que ceux avec des œuvres sélectionnées
+    artists_with_selected = [
+        artist for artist in artists 
+        if any(artwork.statut == 'selectionne' for artwork in artist.artworks)
+    ]
+    
+    return render_template('artworks/selected_artworks.html', artists=artists_with_selected)

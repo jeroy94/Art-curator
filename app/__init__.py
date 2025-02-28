@@ -1,90 +1,73 @@
 from flask import Flask
-from flask_migrate import Migrate
-from flask_cors import CORS
-from flask_jwt_extended import JWTManager
-from flask_login import LoginManager
-from app.models.models import db, init_db, User
-import os
-import secrets
+from flask_mail import Mail
+
+mail = Mail()
 
 def create_app():
     app = Flask(__name__)
     
-    # Config
+    # Configuration
     from config import Config
     app.config.from_object(Config)
     
-    # Configuration de la session
-    app.config['SECRET_KEY'] = secrets.token_hex(32)  # Générer une clé secrète sécurisée
-    app.config['SESSION_TYPE'] = 'filesystem'  # Stockage des sessions sur le système de fichiers
-    app.config['SESSION_PERMANENT'] = False  # Sessions non permanentes
-    app.config['SESSION_USE_SIGNER'] = True  # Signer les sessions
+    # Initialiser les extensions
+    mail.init_app(app)
     
-    # Initialize extensions
-    init_db(app)
-    Migrate(app, db)
-    CORS(app)
-    JWTManager(app)
+    # Import blueprints
+    from app.routes import auth, artists, admin, artworks, test, processing, main
     
-    # Initialiser la session
-    from flask_session import Session
-    Session(app)
-    
-    # Initialize Flask-Login
-    login_manager = LoginManager()
-    login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
-    
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
-    
-    # Create upload folder if it doesn't exist
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.makedirs(app.config['UPLOAD_FOLDER'])
-    
-    # Configuration du logger pour la compatibilité Windows
-    import sys
+    # Débogage des blueprints
     import logging
-    import io
-
-    # Créer un gestionnaire de flux qui gère l'encodage UTF-8
-    class UTF8StreamHandler(logging.StreamHandler):
-        def __init__(self, stream=None):
-            if stream is None:
-                stream = sys.stdout
-            super().__init__(stream)
-
-        def format(self, record):
-            # Convertir les emojis et caractères spéciaux en leur représentation textuelle
-            msg = super().format(record)
-            return msg.encode('ascii', 'ignore').decode('ascii')
-
+    import sys
+    
     # Configuration du logging
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            UTF8StreamHandler(),  # Gestionnaire de flux personnalisé
-            logging.FileHandler('app.log', encoding='utf-8')  # Fichier log en UTF-8
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler('app_debug.log')
         ]
     )
-
-    # Rediriger stdout vers un flux qui gère l'encodage
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    logger = logging.getLogger(__name__)
+    
+    logger.info("Enregistrement des blueprints...")
+    logger.info(f"main: {main.bp}")
+    logger.info(f"auth: {auth.bp}")
+    logger.info(f"artists: {artists.bp}")
+    logger.info(f"artworks: {artworks.bp}")
+    logger.info(f"test: {test.bp}")
+    logger.info(f"processing: {processing.bp}")
+    logger.info(f"admin: {admin.admin_bp}")
     
     # Register blueprints
-    from app.routes import auth, artists, admin, artworks, test
-    app.register_blueprint(auth.bp)
-    app.register_blueprint(artists.bp)
-    app.register_blueprint(admin.bp)
-    app.register_blueprint(artworks.bp)
-    app.register_blueprint(test.bp)
+    app.register_blueprint(main.bp)
+    app.register_blueprint(auth.bp, url_prefix='/auth')
+    app.register_blueprint(artists.bp, url_prefix='/artists')
+    app.register_blueprint(artworks.bp, url_prefix='/artworks')
+    app.register_blueprint(test.bp, url_prefix='/test')
+    app.register_blueprint(processing.bp, url_prefix='/processing')
+    app.register_blueprint(admin.admin_bp, url_prefix='/admin')
     
-    # Jinja2 filters
-    @app.template_filter('selectonly')
-    def selectonly_filter(artworks):
-        """Filtre qui retourne True si l'artiste a au moins une œuvre sélectionnée."""
-        return any(artwork.statut == 'selectionne' for artwork in artworks)
+    # Lister toutes les routes
+    logger.info("Routes disponibles :")
+    for rule in app.url_map.iter_rules():
+        logger.info(f"Endpoint: {rule.endpoint}")
+        logger.info(f"  Méthodes : {rule.methods}")
+        logger.info(f"  Chemin : {rule}")
+        
+        # Essayer de trouver la fonction associée
+        try:
+            func = app.view_functions.get(rule.endpoint)
+            if func:
+                logger.info(f"  Fonction : {func.__name__}")
+                logger.info(f"  Module : {func.__module__}")
+            else:
+                logger.warning(f"  Aucune fonction trouvée pour {rule.endpoint}")
+        except Exception as e:
+            logger.error(f"  Erreur lors de la récupération de la fonction : {e}")
+    
+    # Configuration du logger de l'application
+    app.logger.setLevel(logging.DEBUG)
     
     return app
